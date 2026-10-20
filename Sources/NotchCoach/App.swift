@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Carbon.HIToolbox
 
 @main
@@ -20,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: PrompterPanelController?
     private let editor = EditorWindowController()
     private var statusItem: NSStatusItem?
+    private var bag = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
@@ -28,6 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController?.setVisible(true)
         setupStatusItem()
         setupHotKeys()
+        state.onOpenEditor = { [weak self] in
+            MainActor.assumeIsolated { self?.openEditor() }
+        }
         editor.show(state: state)
     }
 
@@ -67,6 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: "NotchCoach")
         let menu = NSMenu()
+        let stop = makeItem("Stop Everything  (⌃⌥Esc)", #selector(hardStop), "")
+        stop.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: nil)
+        menu.addItem(stop)
+        menu.addItem(.separator())
         menu.addItem(makeItem("Open Script & Settings…", #selector(openEditor), "e"))
         menu.addItem(.separator())
         menu.addItem(makeItem("Play / Pause  (⌃⌥Space)", #selector(togglePlay), ""))
@@ -78,6 +87,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(makeItem("Quit NotchCoach", #selector(quit), "q"))
         item.menu = menu
         statusItem = item
+
+        // The menu bar icon turns into a red waveform whenever the mic or call audio is live.
+        Publishers.CombineLatest(state.$micActive, state.$cuesEnabled)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] mic, cues in
+                guard let button = self?.statusItem?.button else { return }
+                let live = mic || cues
+                let image = NSImage(
+                    systemSymbolName: live ? "waveform.circle.fill" : "text.bubble",
+                    accessibilityDescription: live ? "NotchCoach is listening" : "NotchCoach"
+                )
+                image?.isTemplate = !live
+                button.image = image
+                button.contentTintColor = live ? .systemRed : nil
+            }
+            .store(in: &bag)
     }
 
     private func makeItem(_ title: String, _ action: Selector, _ key: String) -> NSMenuItem {
@@ -97,9 +122,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keys.register(keyCode: kVK_ANSI_V) { [weak self] in self?.toggleMode() }
         keys.register(keyCode: kVK_ANSI_C) { [weak self] in self?.state.toggleCues() }
         keys.register(keyCode: kVK_ANSI_R) { [weak self] in self?.state.restart() }
+        keys.register(keyCode: kVK_Escape) { [weak self] in self?.state.hardStop() }
     }
 
     @objc private func openEditor() { editor.show(state: state) }
+    @objc private func hardStop() { state.hardStop() }
     @objc private func togglePlay() { state.togglePlay() }
     @objc private func restart() { state.restart() }
     @objc private func toggleVisible() { state.isPrompterVisible.toggle() }

@@ -7,6 +7,7 @@ A teleprompter that sits in your MacBook's notch, right under the camera, with A
 - **AI writer**: turn rough notes into a spoken script, or polish an existing one.
 - **Live call cues**: listens to the other people on a call and shows up to three short talking points under your script.
 - **Choose your AI**: Gemma running on your Mac (free, private), Claude with your own API key (best quality), or Apple Intelligence (free, built into macOS 26).
+- **On-screen controls**: a control bar under the script in the notch (play, skip, speed, voice, cues, hide) plus a red **Stop everything** button. Every button also has a keyboard shortcut.
 - Hidden from screen sharing and screen recordings.
 
 ## Install
@@ -55,6 +56,7 @@ If you said no by mistake, turn it on under **System Settings → Privacy & Secu
 | ⌃⌥ V | Switch Auto-scroll / Follow my voice |
 | ⌃⌥ C | Live call cues on / off |
 | ⌃⌥ H | Show / hide the prompter |
+| ⌃⌥ Esc | Stop everything: scrolling, microphone, call audio and AI |
 
 ## Build it yourself
 
