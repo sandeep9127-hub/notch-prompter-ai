@@ -151,10 +151,10 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
         onStatus?("Thinking…")
         Task {
             do {
-                let reply = try await ClaudeClient.complete(
+                let reply = try await AI.complete(
                     system: Prompts.cueSystem,
                     prompt: Prompts.cueRequest(notes: context, transcript: recent),
-                    maxTokens: 2000,
+                    long: false,
                     effort: "low"
                 )
                 let cues = Prompts.parseCues(reply)

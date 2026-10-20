@@ -88,7 +88,7 @@ struct AIWriterTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Paste bullet points or rough notes. Claude turns them into a script you can read aloud.")
+            Text("Paste bullet points or rough notes. The AI engine chosen in Settings turns them into a script you can read aloud.")
                 .foregroundColor(.secondary)
             TextEditor(text: $notes)
                 .font(.system(size: 14))
@@ -143,20 +143,17 @@ struct SettingsTab: View {
 
     var body: some View {
         Form {
-            Section("Claude") {
-                HStack {
-                    SecureField("Anthropic API key (sk-ant-…)", text: $apiKey)
-                    Button(saved ? "Saved" : "Save") {
-                        Keychain.apiKey = apiKey
-                        saved = true
-                    }
+            Section("AI engine") {
+                Picker("Use", selection: $state.aiEngine) {
+                    ForEach(AIEngineKind.allCases) { Text($0.label).tag($0) }
                 }
-                Picker("Model", selection: $state.model) {
-                    ForEach(ClaudeClient.models, id: \.id) { Text($0.label).tag($0.id) }
+                .pickerStyle(.radioGroup)
+
+                switch state.aiEngine {
+                case .gemma: gemmaSettings
+                case .claude: claudeSettings
+                case .apple: appleSettings
                 }
-                Text("Get a key at console.anthropic.com. It's stored in your macOS Keychain. Script text and call transcripts are sent to Anthropic only when you use the AI writer or live cues.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
 
             Section("Prompter") {
@@ -181,6 +178,51 @@ struct SettingsTab: View {
             saved = !apiKey.isEmpty
         }
         .onChange(of: apiKey) { saved = false }
+    }
+
+    @ViewBuilder
+    private var gemmaSettings: some View {
+        Picker("Model", selection: $state.gemmaModel) {
+            ForEach(GemmaModel.allCases) { Text($0.label).tag($0) }
+        }
+        HStack {
+            Button("Download / load model") { state.prepareGemma() }
+            if !state.gemmaStatus.isEmpty {
+                Text(state.gemmaStatus).font(.callout).foregroundColor(.secondary)
+            }
+        }
+        Text("Runs entirely on this Mac: nothing you write or hear is sent anywhere. The model downloads once from Hugging Face (a few GB) and uses a few GB of memory while loaded.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var claudeSettings: some View {
+        HStack {
+            SecureField("Anthropic API key (sk-ant-…)", text: $apiKey)
+            Button(saved ? "Saved" : "Save") {
+                Keychain.apiKey = apiKey
+                saved = true
+            }
+        }
+        Picker("Model", selection: $state.model) {
+            ForEach(ClaudeClient.models, id: \.id) { Text($0.label).tag($0.id) }
+        }
+        Text("Best quality, paid per use. Get a key at console.anthropic.com; it's stored in your macOS Keychain. Script text and call transcripts are sent to Anthropic when you use the AI writer or live cues.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var appleSettings: some View {
+        if let reason = AppleEngine.unavailableReason {
+            Label(reason, systemImage: "exclamationmark.triangle").foregroundColor(.orange)
+        } else {
+            Label("Apple Intelligence is ready on this Mac.", systemImage: "checkmark.circle").foregroundColor(.green)
+        }
+        Text("Uses Apple's built-in on-device model: no download and nothing leaves your Mac. It has a small memory window, so very long scripts may need Gemma or Claude.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 }
 

@@ -28,6 +28,8 @@ final class AppState: ObservableObject {
     @Published var visibleLines: Int { didSet { defaults.set(visibleLines, forKey: "visibleLines") } }
     @Published var speechLocale: String { didSet { defaults.set(speechLocale, forKey: "speechLocale") } }
     @Published var model: String { didSet { defaults.set(model, forKey: "model") } }
+    @Published var aiEngine: AIEngineKind { didSet { defaults.set(aiEngine.rawValue, forKey: "aiEngine") } }
+    @Published var gemmaModel: GemmaModel { didSet { defaults.set(gemmaModel.rawValue, forKey: "gemmaModel") } }
 
     // Prompter state
     @Published var mode: ScrollMode = .timed
@@ -48,6 +50,7 @@ final class AppState: ObservableObject {
     @Published var aiBusy = false
     @Published var aiMessage: String?
     @Published var previousScript: String?
+    @Published var gemmaStatus = ""
 
     @Published private(set) var words: [String] = []
     @Published private(set) var lines: [ScriptLine] = []
@@ -65,6 +68,12 @@ final class AppState: ObservableObject {
         visibleLines = defaults.object(forKey: "visibleLines") as? Int ?? 3
         speechLocale = defaults.string(forKey: "speechLocale") ?? "en-IN"
         model = defaults.string(forKey: "model") ?? ClaudeClient.defaultModel
+        aiEngine = AIEngineKind(rawValue: defaults.string(forKey: "aiEngine") ?? "") ?? .gemma
+        gemmaModel = GemmaModel(rawValue: defaults.string(forKey: "gemmaModel") ?? "") ?? .e2b
+
+        GemmaEngine.shared.onStatus = { [weak self] message in
+            Task { @MainActor in self?.gemmaStatus = message }
+        }
 
         voice.onWordIndex = { [weak self] index in
             MainActor.assumeIsolated { self?.voiceAdvanced(to: index) }
@@ -259,13 +268,19 @@ final class AppState: ObservableObject {
         aiMessage = nil
         defer { aiBusy = false }
         do {
-            let text = try await ClaudeClient.complete(system: system, prompt: prompt, maxTokens: 16000, effort: "medium")
+            let text = try await AI.complete(system: system, prompt: prompt, long: true, effort: "medium")
             previousScript = script
             script = text.trimmingCharacters(in: .whitespacesAndNewlines)
             restart()
             aiMessage = "Script updated. You'll see it in the Script tab and in the notch."
         } catch {
             aiMessage = error.localizedDescription
+        }
+    }
+
+    func prepareGemma() {
+        Task {
+            do { try await GemmaEngine.shared.prepare() } catch {}
         }
     }
 

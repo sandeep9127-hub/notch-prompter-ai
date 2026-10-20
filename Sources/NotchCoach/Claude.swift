@@ -152,7 +152,7 @@ enum Prompts {
     static func cueRequest(notes: String, transcript: String) -> String {
         """
         <user_notes>
-        \(notes.prefix(8000))
+        \(notes.prefix(3000))
         </user_notes>
 
         <recent_transcript_of_other_people>

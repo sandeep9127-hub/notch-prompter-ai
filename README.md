@@ -4,8 +4,9 @@ A teleprompter that sits in your MacBook's notch, right under the camera, with A
 
 - **Auto-scroll** at a speed you set. Hover over the prompter to pause.
 - **Follow my voice**: the script only moves as you speak, using Apple's on-device speech recognition. Words you've already said are dimmed.
-- **AI writer**: turn rough notes into a spoken script, or polish an existing one (Claude API).
-- **Live call cues**: listens to the other people on a call and shows up to three short talking points under your script (Claude API).
+- **AI writer**: turn rough notes into a spoken script, or polish an existing one.
+- **Live call cues**: listens to the other people on a call and shows up to three short talking points under your script.
+- **Choose your AI**: Gemma running on your Mac (free, private), Claude with your own API key (best quality), or Apple Intelligence (free, built into macOS 26).
 - Hidden from screen sharing and screen recordings.
 
 ## Install
@@ -18,15 +19,21 @@ A teleprompter that sits in your MacBook's notch, right under the camera, with A
    ```
 4. NotchCoach runs from the menu bar (speech-bubble icon). The script window opens on launch.
 
-Needs macOS 14 (Sonoma) or later. Works on Macs without a notch too: the prompter then sits at the top centre of the screen.
+Needs an Apple-silicon Mac (M1 or later) with macOS 14 (Sonoma) or later. Works on Macs without a notch too: the prompter then sits at the top centre of the screen.
 
-## Set up the AI features
+## Choose an AI engine
 
-1. Create an API key at [console.anthropic.com](https://console.anthropic.com).
-2. Paste it into **Settings → Claude** and click **Save**. It's stored in your macOS Keychain.
-3. Pick a model. Opus 5.5 gives the best quality; Haiku 5.5 is fastest and cheapest, and a good choice for live cues.
+Pick one in **Settings → AI engine**. It powers both the AI writer and live cues.
 
-Script text is sent to Anthropic only when you use the AI writer. When live cues are on, the transcript of the other people on the call and your script are sent after each pause in the conversation. Let others on the call know if you use it.
+| Engine | Cost | Privacy | Needs |
+|---|---|---|---|
+| **Gemma** (default) | Free | Everything stays on your Mac | A one-time model download of a few GB, and a few GB of free memory while it runs |
+| **Claude** | Pay per use with your own key | Text and call transcripts go to Anthropic | An API key from [console.anthropic.com](https://console.anthropic.com), stored in your Keychain |
+| **Apple Intelligence** | Free | Everything stays on your Mac | macOS 26 on a Mac with Apple Intelligence turned on |
+
+Gemma comes in two sizes: E2B (faster, lighter) and E4B (better writing, more memory). Claude gives the best writing. Apple's model has a small memory window, so very long scripts may need Gemma or Claude.
+
+If you use live cues with Claude, let others on the call know their speech is being sent to an AI service.
 
 ## Permissions
 
