@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if state.micActive { live.append("● Mic on") }
         if state.cuesEnabled { live.append("● Call audio on") }
         if state.aiBusy { live.append("● AI working") }
-        let header = NSMenuItem(title: live.isEmpty ? "Nothing is listening" : live.joined(separator: "   "), action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: (live.isEmpty ? "Nothing is listening" : live.joined(separator: "   ")) + "   ·   Build \(AppState.buildNumber)", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
 

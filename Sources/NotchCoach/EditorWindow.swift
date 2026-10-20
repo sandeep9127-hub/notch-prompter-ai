@@ -61,7 +61,7 @@ struct EditorView: View {
                         .frame(width: 34, height: 34)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("NotchCoach").font(.system(size: 14, weight: .bold))
-                        Text("Your script, under your camera").font(.system(size: 10)).foregroundColor(.secondary)
+                        Text("Build \(AppState.buildNumber)").font(.system(size: 10)).foregroundColor(.secondary)
                     }
                 }
                 .padding(.vertical, 6)
@@ -251,6 +251,23 @@ struct PresentView: View {
 
             if !state.status.isEmpty {
                 Label(state.status, systemImage: "info.circle").font(.callout).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if state.mode == .voice && state.micActive {
+                Label(state.voiceHearing.isEmpty ? "Hearing: nothing yet. Read a line aloud." : "Hearing: “\(state.voiceHearing)”", systemImage: "waveform")
+                    .font(.callout)
+                    .foregroundColor(state.voiceHearing.isEmpty ? .secondary : .green)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
+            if let url = state.permissionSettingsURL {
+                HStack(spacing: 8) {
+                    Button("Open System Settings") { NSWorkspace.shared.open(url) }
+                    Button("Open Log File") {
+                        if !FileManager.default.fileExists(atPath: Log.url.path) { Log.write("Log opened") }
+                        NSWorkspace.shared.open(Log.url)
+                    }
+                }
             }
             if state.cuesEnabled && !state.cueStatus.isEmpty {
                 Label(state.cueStatus, systemImage: "text.bubble").font(.callout).foregroundColor(.secondary)

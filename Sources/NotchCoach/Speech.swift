@@ -65,6 +65,28 @@ enum Permissions {
     }
 
     static let screenRecordingSettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+    static let microphoneSettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
+    static let speechSettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition")!
+
+    static var speechStatusName: String {
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized: return "authorized"
+        case .denied: return "denied"
+        case .restricted: return "restricted"
+        case .notDetermined: return "not asked yet"
+        @unknown default: return "unknown"
+        }
+    }
+
+    static var microphoneStatusName: String {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized: return "authorized"
+        case .denied: return "denied"
+        case .restricted: return "restricted"
+        case .notDetermined: return "not asked yet"
+        @unknown default: return "unknown"
+        }
+    }
 
     /// Clears a stale Screen & System Audio Recording entry, for example one left by an older
     /// build, so macOS asks again cleanly.
@@ -127,10 +149,22 @@ final class VoiceFollower {
     var onWordIndex: ((Int) -> Void)?
     var onStatus: ((String) -> Void)?
     var onLevel: ((Float) -> Void)?
+    /// The latest words recognised from your microphone.
+    var onHearing: ((String) -> Void)?
+    /// Called with a System Settings page when a permission is missing.
+    var onPermissionProblem: ((URL) -> Void)?
     private(set) var isRunning = false
+    private(set) var microphoneName = ""
 
     private let engine = AVAudioEngine()
-    private lazy var meter = LevelMeter { [weak self] level in self?.onLevel?(level) }
+    private lazy var meter = LevelMeter { [weak self] level in
+        self?.levelReceived(level)
+        self?.onLevel?(level)
+    }
+    private var peakLevel: Float = 0
+    private var silenceCheck: DispatchWorkItem?
+    private var loggedFirstWords = false
+    private var misses = 0
     private let box = RequestBox()
     private var recognizer: SFSpeechRecognizer?
     private var task: SFSpeechRecognitionTask?
@@ -151,15 +185,21 @@ final class VoiceFollower {
     func start(from index: Int, localeID: String) {
         guard !isRunning else { return }
         position = index
+        Log.write("Voice: start requested (speech: \(Permissions.speechStatusName), microphone: \(Permissions.microphoneStatusName), language: \(localeID))")
+        onStatus?("Checking permissions…")
         Permissions.requestSpeech { [weak self] speechOK in
             guard let self else { return }
+            Log.write("Voice: speech recognition \(speechOK ? "allowed" : "not allowed") (\(Permissions.speechStatusName))")
             guard speechOK else {
-                self.onStatus?("Allow Speech Recognition for NotchCoach in System Settings → Privacy & Security.")
+                self.onPermissionProblem?(Permissions.speechSettings)
+                self.onStatus?("Speech Recognition is off for NotchCoach. Turn it on in System Settings → Privacy & Security → Speech Recognition, then try again.")
                 return
             }
             Permissions.requestMicrophone { micOK in
+                Log.write("Voice: microphone \(micOK ? "allowed" : "not allowed") (\(Permissions.microphoneStatusName))")
                 guard micOK else {
-                    self.onStatus?("Allow Microphone access for NotchCoach in System Settings → Privacy & Security.")
+                    self.onPermissionProblem?(Permissions.microphoneSettings)
+                    self.onStatus?("Microphone is off for NotchCoach. Turn it on in System Settings → Privacy & Security → Microphone, then try again.")
                     return
                 }
                 self.begin(localeID: localeID)
@@ -167,14 +207,28 @@ final class VoiceFollower {
         }
     }
 
+    /// Notices a microphone that's on but sending silence (wrong input device, or blocked).
+    private func levelReceived(_ level: Float) {
+        guard isRunning else { return }
+        if peakLevel < 0.15 && level >= 0.15 { Log.write("Voice: hearing sound from the microphone") }
+        peakLevel = max(peakLevel, level)
+    }
+
     private func begin(localeID: String) {
         guard let rec = Permissions.recognizer(for: localeID), rec.isAvailable else {
-            onStatus?("Speech recognition isn't available for \(localeID) right now.")
+            Log.write("Voice: recogniser unavailable for \(localeID)")
+            onStatus?("Speech recognition isn't available for \(localeID) right now. Try English (US) in Settings → Speech, and check that Dictation is on in System Settings → Keyboard.")
             return
         }
         recognizer = rec
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
+        microphoneName = AVCaptureDevice.default(for: .audio)?.localizedName ?? "unknown microphone"
+        Log.write("Voice: input \(microphoneName), \(Int(format.sampleRate)) Hz, \(format.channelCount) ch, on-device: \(rec.supportsOnDeviceRecognition)")
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            onStatus?("No microphone input found. Pick a microphone in System Settings → Sound → Input.")
+            return
+        }
         input.removeTap(onBus: 0)
         let box = self.box
         let meter = self.meter
@@ -191,8 +245,21 @@ final class VoiceFollower {
             return
         }
         isRunning = true
-        onStatus?(rec.supportsOnDeviceRecognition ? "Listening (on-device)" : "Listening")
+        peakLevel = 0
+        loggedFirstWords = false
+        misses = 0
+        onStatus?("Listening with \(microphoneName)\(rec.supportsOnDeviceRecognition ? " (on-device)" : "")")
         startTask()
+
+        silenceCheck?.cancel()
+        let check = DispatchWorkItem { [weak self] in
+            guard let self, self.isRunning, self.peakLevel < 0.08 else { return }
+            Log.write("Voice: microphone looks silent after 6 seconds (peak \(self.peakLevel))")
+            self.onPermissionProblem?(Permissions.microphoneSettings)
+            self.onStatus?("“\(self.microphoneName)” isn't picking up any sound. Check System Settings → Sound → Input, and that NotchCoach is on under Privacy & Security → Microphone.")
+        }
+        silenceCheck = check
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: check)
     }
 
     private func startTask() {
@@ -209,11 +276,20 @@ final class VoiceFollower {
         task = rec.recognitionTask(with: request) { [weak self] result, error in
             let spoken = result?.bestTranscription.segments.map { $0.substring } ?? []
             let finished = (result?.isFinal ?? false) || error != nil
-            let errorText = error?.localizedDescription
+            let errorText = error.map { error -> String in
+                let ns = error as NSError
+                return "\(ns.localizedDescription) [\(ns.domain) \(ns.code)]"
+            }
             DispatchQueue.main.async {
                 guard let self, self.isRunning, gen == self.generation else { return }
+                if let errorText { Log.write("Voice: recogniser ended with \(errorText)") }
                 if !spoken.isEmpty {
+                    if !self.loggedFirstWords {
+                        self.loggedFirstWords = true
+                        Log.write("Voice: first words recognised")
+                    }
                     self.backoff.heardSpeech()
+                    self.onHearing?(spoken.suffix(12).joined(separator: " "))
                     self.align(spoken)
                 }
                 if finished {
@@ -233,7 +309,9 @@ final class VoiceFollower {
 
     func stop() {
         guard isRunning else { return }
+        Log.write("Voice: stopped")
         isRunning = false
+        silenceCheck?.cancel()
         generation += 1
         task?.cancel()
         task = nil
@@ -279,9 +357,39 @@ final class VoiceFollower {
                 bestEnd = end
             }
         }
-        guard bestEnd >= 0, bestEnd + 1 != position else { return }
+        if bestEnd < 0 {
+            // Nothing nearby matched. After a few misses, look across the whole script in case
+            // the reader started somewhere else or skipped ahead.
+            misses += 1
+            if misses >= 3, tail.count >= 4, let found = searchWholeScript(tail) {
+                Log.write("Voice: jumped to word \(found) after losing the place")
+                misses = 0
+                position = found + 1
+                onWordIndex?(position)
+            }
+            return
+        }
+        misses = 0
+        guard bestEnd + 1 != position else { return }
         position = bestEnd + 1
         onWordIndex?(position)
+    }
+
+    /// Finds where the last few spoken words appear in a row anywhere in the script.
+    private func searchWholeScript(_ tail: [String]) -> Int? {
+        let needed = min(4, tail.count)
+        let probe = Array(tail.suffix(needed))
+        var best: (end: Int, matches: Int)?
+        for end in (needed - 1)..<tokens.count {
+            var matches = 0
+            for k in 0..<needed where TextMatch.similar(probe[needed - 1 - k], tokens[end - k]) {
+                matches += 1
+            }
+            if matches >= needed - 1, matches > (best?.matches ?? 0) || (matches == best?.matches && abs(end - position) < abs((best?.end ?? 0) - position)) {
+                best = (end, matches)
+            }
+        }
+        return best?.end
     }
 }
 

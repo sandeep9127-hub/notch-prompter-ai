@@ -76,6 +76,11 @@ final class AppState: ObservableObject {
     @Published var spokenWordIndex = 0
     @Published var status = ""
     @Published var micActive = false
+    /// The latest words recognised from your microphone, shown on the Present screen.
+    @Published var voiceHearing = ""
+    /// A System Settings page to offer when a permission is missing.
+    @Published var permissionSettingsURL: URL?
+    static let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "dev"
     @Published var micLevel: Float = 0
     @Published var countdown: Int?
     @Published var showStoppedCard = false
@@ -159,6 +164,12 @@ final class AppState: ObservableObject {
                     self.micLevel = 0
                 }
             }
+        }
+        voice.onHearing = { [weak self] text in
+            MainActor.assumeIsolated { self?.voiceHearing = text }
+        }
+        voice.onPermissionProblem = { [weak self] url in
+            MainActor.assumeIsolated { self?.permissionSettingsURL = url }
         }
         voice.onLevel = { [weak self] level in
             MainActor.assumeIsolated {
@@ -363,6 +374,8 @@ final class AppState: ObservableObject {
                 isPlaying = false
             } else {
                 let start = lines.indices.contains(currentLine) ? lines[currentLine].words.lowerBound : 0
+                voiceHearing = ""
+                permissionSettingsURL = nil
                 withCountdown { [weak self] in
                     guard let self else { return }
                     self.voice.start(from: start, localeID: self.speechLocale)
