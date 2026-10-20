@@ -93,6 +93,11 @@ final class AppState: ObservableObject {
     @Published var aiBusy = false
     @Published var aiMessage: String?
     @Published var previousScript: String?
+    /// The AI's latest result, shown for review before it replaces the script.
+    @Published var aiDraft: String?
+    /// Asks the editor window to switch to a section (for example after using a draft).
+    @Published var editorSectionRequest: EditorSection?
+    private var lastAIRequest: (system: String, prompt: String)?
     @Published var gemmaStatus = ""
     @Published var gemmaProgress: Double?
 
@@ -497,13 +502,38 @@ final class AppState: ObservableObject {
     // MARK: AI writer
 
     func aiWrite(notes: String, tone: String, seconds: Int) {
-        let prompt = Prompts.writeRequest(notes: notes, tone: tone, seconds: seconds)
-        aiTask = Task { await runAI(system: Prompts.scriptSystem, prompt: prompt) }
+        startAI(system: Prompts.scriptSystem, prompt: Prompts.writeRequest(notes: notes, tone: tone, seconds: seconds))
     }
 
     func aiPolish(tone: String) {
-        let prompt = Prompts.polishRequest(script: script, tone: tone)
-        aiTask = Task { await runAI(system: Prompts.scriptSystem, prompt: prompt) }
+        startAI(system: Prompts.scriptSystem, prompt: Prompts.polishRequest(script: script, tone: tone))
+    }
+
+    func aiTryAgain() {
+        guard let last = lastAIRequest else { return }
+        startAI(system: last.system, prompt: last.prompt)
+    }
+
+    private func startAI(system: String, prompt: String) {
+        lastAIRequest = (system, prompt)
+        aiTask?.cancel()
+        aiTask = Task { await runAI(system: system, prompt: prompt) }
+    }
+
+    /// Puts the reviewed draft into the prompter, keeping the old script for Undo.
+    func useDraft() {
+        guard let draft = aiDraft?.trimmingCharacters(in: .whitespacesAndNewlines), !draft.isEmpty else { return }
+        previousScript = script
+        script = draft
+        aiDraft = nil
+        restart()
+        aiMessage = "Your new script is in the prompter."
+        editorSectionRequest = .present
+    }
+
+    func discardDraft() {
+        aiDraft = nil
+        aiMessage = nil
     }
 
     func cancelAI() {
@@ -520,10 +550,8 @@ final class AppState: ObservableObject {
         do {
             let text = try await AI.complete(system: system, prompt: prompt, long: true, effort: "medium")
             guard !Task.isCancelled else { return }
-            previousScript = script
-            script = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            restart()
-            aiMessage = "Script updated. You'll see it on the Present screen and in the prompter."
+            aiDraft = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            aiMessage = nil
         } catch {
             if !Task.isCancelled { aiMessage = error.localizedDescription }
         }

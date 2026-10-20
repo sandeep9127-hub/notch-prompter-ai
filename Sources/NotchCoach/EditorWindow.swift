@@ -84,6 +84,12 @@ struct EditorView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(minWidth: 760, minHeight: 560)
+        .onChange(of: state.editorSectionRequest) {
+            if let request = state.editorSectionRequest {
+                section = request
+                state.editorSectionRequest = nil
+            }
+        }
     }
 
     private var sidebarFooter: some View {
@@ -415,34 +421,42 @@ struct AIWriterView: View {
             HStack {
                 Text("Turn rough notes into a script you can read aloud.").font(.headline)
                 Spacer()
-                Label(state.aiEngine.label, systemImage: "cpu").font(.caption).foregroundColor(.secondary)
+                Label(state.aiEngine.label, systemImage: "cpu")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .help("Change the AI engine in Settings")
             }
 
-            TextEditor(text: $notes)
-                .font(.system(size: 14))
-                .scrollContentBackground(.hidden)
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(alignment: .topLeading) {
-                    if notes.isEmpty {
-                        Text("Paste bullet points or notes here…")
-                            .foregroundColor(.secondary)
-                            .padding(14)
-                            .allowsHitTesting(false)
-                    }
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 16) {
+                    notesPane
+                    if state.aiDraft != nil || state.aiBusy { draftPane }
                 }
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.25)))
+                VStack(spacing: 16) {
+                    notesPane
+                    if state.aiDraft != nil || state.aiBusy { draftPane }
+                }
+            }
 
             HStack(spacing: 16) {
-                Picker("Tone", selection: $tone) {
-                    ForEach(tones, id: \.self) { Text($0).tag($0) }
+                HStack(spacing: 8) {
+                    Text("Tone").fixedSize()
+                    Picker("Tone", selection: $tone) {
+                        ForEach(tones, id: \.self) { Text($0).tag($0) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 160)
                 }
-                .frame(width: 220)
-                Picker("Length", selection: $seconds) {
-                    ForEach(lengths, id: \.0) { Text($0.1).tag($0.0) }
+                HStack(spacing: 8) {
+                    Text("Length").fixedSize()
+                    Picker("Length", selection: $seconds) {
+                        ForEach(lengths, id: \.0) { Text($0.1).tag($0.0) }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 260)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 280)
                 Spacer()
             }
 
@@ -450,25 +464,27 @@ struct AIWriterView: View {
                 Button {
                     state.aiWrite(notes: notes, tone: tone, seconds: seconds)
                 } label: {
-                    Label("Write script", systemImage: "sparkles")
+                    Label("Write script from notes", systemImage: "sparkles")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(state.aiBusy || notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .help("Writes a new draft from the notes on the left")
 
                 Button {
                     state.aiPolish(tone: tone)
                 } label: {
-                    Label("Polish current script", systemImage: "wand.and.stars")
+                    Label("Polish my current script", systemImage: "wand.and.stars")
                 }
                 .disabled(state.aiBusy || state.script.isEmpty)
+                .help("Rewrites the script that's in the prompter now, as a draft for you to review")
 
                 if state.aiBusy {
-                    ProgressView().controlSize(.small)
                     Button("Cancel") { state.cancelAI() }
                 }
                 Spacer()
-                if state.previousScript != nil {
-                    Button { state.undoAI() } label: { Label("Undo AI change", systemImage: "arrow.uturn.backward") }
+                if state.previousScript != nil && state.aiDraft == nil {
+                    Button { state.undoAI() } label: { Label("Undo last change", systemImage: "arrow.uturn.backward") }
+                        .help("Put back the script you had before using the last AI draft")
                 }
             }
             .controlSize(.large)
@@ -476,11 +492,79 @@ struct AIWriterView: View {
             if let message = state.aiMessage {
                 Label(message, systemImage: "info.circle").font(.callout).foregroundColor(.secondary)
             }
-            if state.aiEngine == .gemma && !state.gemmaStatus.isEmpty {
+            if state.aiEngine == .gemma && !state.gemmaStatus.isEmpty && state.aiBusy {
                 Label(state.gemmaStatus, systemImage: "arrow.down.circle").font(.callout).foregroundColor(.secondary)
             }
         }
         .padding(24)
+    }
+
+    private var notesPane: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("YOUR NOTES").font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundColor(.secondary)
+            TextEditor(text: $notes)
+                .font(.system(size: 14))
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .frame(minHeight: 220)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .textBackgroundColor)))
+                .overlay(alignment: .topLeading) {
+                    if notes.isEmpty {
+                        Text("Paste bullet points or rough notes here…")
+                            .foregroundColor(.secondary)
+                            .padding(14)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.25)))
+        }
+        .frame(minWidth: 280)
+    }
+
+    private var draftPane: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("AI DRAFT").font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundColor(.secondary)
+                Spacer()
+                if let draft = state.aiDraft {
+                    let words = draft.split(whereSeparator: { $0.isWhitespace }).count
+                    Text("\(words) words · about \(max(1, Int((Double(words) / 140 * 60).rounded()))) sec")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Group {
+                if state.aiBusy {
+                    VStack(spacing: 10) {
+                        ProgressView()
+                        Text("Writing your draft…").font(.callout).foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    TextEditor(text: Binding(get: { state.aiDraft ?? "" }, set: { state.aiDraft = $0 }))
+                        .font(.system(size: 14))
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                }
+            }
+            .frame(minHeight: 220)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.yellow.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.yellow.opacity(0.45)))
+
+            if state.aiDraft != nil && !state.aiBusy {
+                HStack(spacing: 8) {
+                    Button { state.useDraft() } label: { Label("Use this script", systemImage: "checkmark") }
+                        .buttonStyle(.borderedProminent)
+                        .help("Replaces the script in your prompter. You can undo it.")
+                    Button { state.aiTryAgain() } label: { Label("Try again", systemImage: "arrow.clockwise") }
+                    Spacer()
+                    Button("Discard") { state.discardDraft() }
+                        .buttonStyle(.borderless)
+                }
+                Text("You can edit the draft before using it.").font(.caption).foregroundColor(.secondary)
+            }
+        }
+        .frame(minWidth: 280)
     }
 }
 
