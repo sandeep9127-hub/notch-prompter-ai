@@ -12,7 +12,17 @@ xcodebuild build \
   -derivedDataPath "$DERIVED" \
   -skipMacroValidation \
   -skipPackagePluginValidation \
-  > build.log 2>&1 || { grep -E "error:|fatal" build.log | sort -u | head -80; tail -n 30 build.log; exit 1; }
+  > build.log 2>&1 || {
+    grep -E "error:|fatal" build.log | sort -u | head -80
+    # Also report errors as GitHub annotations so they're readable without the raw log.
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then
+      grep -E "error:" build.log | sed -E 's#^.*/(Sources/[^ ]+)#\1#' | sort -u | head -40 | while IFS= read -r line; do
+        echo "::error::${line//%/%25}"
+      done
+    fi
+    tail -n 30 build.log
+    exit 1
+  }
 PRODUCTS="$DERIVED/Build/Products/Release"
 
 APP=build/NotchCoach.app
