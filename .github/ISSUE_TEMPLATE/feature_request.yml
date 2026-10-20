@@ -1,0 +1,11 @@
+name: Idea or feature request
+description: Suggest something that would make NotchCoach better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: Describe the problem you have and how you'd like NotchCoach to help.
+    validations:
+      required: true

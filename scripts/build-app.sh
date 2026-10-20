@@ -34,6 +34,17 @@ for bundle in "$PRODUCTS"/*.bundle; do
   [ -e "$bundle" ] && cp -R "$bundle" "$APP/Contents/Resources/"
 done
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+
+# App icon (.icns) from the 1024 px master, plus the menu bar template images.
+ICONSET=build/AppIcon.iconset
+mkdir -p "$ICONSET"
+for size in 16 32 128 256 512; do
+  sips -z $size $size Resources/brand/icon-1024.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z $((size * 2)) $((size * 2)) Resources/brand/icon-1024.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf "$ICONSET"
+cp Resources/brand/MenuBarIcon.png Resources/brand/MenuBarIcon@2x.png "$APP/Contents/Resources/"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER:-1}" "$APP/Contents/Info.plist"
 
 echo "Bundled resources:"; ls "$APP/Contents/Resources"

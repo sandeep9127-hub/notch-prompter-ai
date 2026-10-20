@@ -54,8 +54,21 @@ struct EditorView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(EditorSection.allCases, selection: $section) { item in
-                Label(item.title, systemImage: item.icon).tag(item)
+            List(selection: $section) {
+                HStack(spacing: 10) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 34, height: 34)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("NotchCoach").font(.system(size: 14, weight: .bold))
+                        Text("Your script, under your camera").font(.system(size: 10)).foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 6)
+                .selectionDisabled()
+                ForEach(EditorSection.allCases) { item in
+                    Label(item.title, systemImage: item.icon).tag(item)
+                }
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 240)
             .safeAreaInset(edge: .bottom) { sidebarFooter }

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+  <!-- template image: black on transparent; macOS tints it for light/dark menu bars -->
+  <path d="M5 4 h26 a2 2 0 0 1 2 2 v24 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 V6 a2 2 0 0 1 2 -2 z M12 6 v1.2 a3 3 0 0 0 3 3 h6 a3 3 0 0 0 3 -3 V6 z" fill="none" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M12 6 v1.2 a3 3 0 0 0 3 3 h6 a3 3 0 0 0 3 -3 V6 z" fill="#000"/>
+  <rect x="11" y="15.5" width="16" height="3.4" rx="1.7" fill="#000"/>
+  <rect x="7.5" y="15.5" width="2.2" height="3.4" rx="1.1" fill="#000"/>
+  <rect x="11" y="22" width="11" height="3" rx="1.5" fill="#000" opacity="0.55"/>
+</svg>

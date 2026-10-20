@@ -71,7 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: "NotchCoach")
+        item.button?.image = Self.menuBarIcon
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
@@ -83,12 +83,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .sink { [weak self] mic, cues in
                 guard let button = self?.statusItem?.button else { return }
                 let live = mic || cues
-                let image = NSImage(
-                    systemSymbolName: live ? "waveform.circle.fill" : "text.bubble",
-                    accessibilityDescription: live ? "NotchCoach is listening" : "NotchCoach"
-                )
-                image?.isTemplate = !live
-                button.image = image
+                if live {
+                    let image = NSImage(systemSymbolName: "waveform.circle.fill", accessibilityDescription: "NotchCoach is listening")
+                    image?.isTemplate = false
+                    button.image = image
+                } else {
+                    button.image = Self.menuBarIcon
+                }
                 button.contentTintColor = live ? .systemRed : nil
             }
             .store(in: &bag)
@@ -174,6 +175,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         return item
     }
+
+    /// The notch-and-lines logo as a template image, so macOS tints it for the menu bar.
+    private static let menuBarIcon: NSImage? = {
+        let image = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "text.bubble", accessibilityDescription: nil)
+        image?.size = NSSize(width: 18, height: 18)
+        image?.isTemplate = true
+        image?.accessibilityDescription = "NotchCoach"
+        return image
+    }()
 
     private func makeItem(_ title: String, _ action: Selector, _ key: String) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)

@@ -1,0 +1,44 @@
+name: Bug report
+description: Something isn't working the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping make NotchCoach better. If the app is stuck, press ⌃⌥Esc or run `killall -9 NotchCoach` first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Which feature?
+      options: [Auto-scroll, Follow my voice, Live call cues, AI writer, Settings, Installing or opening the app, Something else]
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: AI engine
+      options: [Gemma, Claude, Apple Intelligence, Not using AI]
+  - type: input
+    id: mac
+    attributes:
+      label: Mac and macOS version
+      placeholder: e.g. MacBook Air M2, macOS 15.3
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: NotchCoach build
+      placeholder: e.g. build-7 (from the release you downloaded)
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Menu bar icon → Open Log File, then paste the last 30 or so lines. It contains app events, not your script.
+      render: text

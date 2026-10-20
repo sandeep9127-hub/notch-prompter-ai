@@ -1,77 +1,144 @@
+<div align="center">
+
+<img src="docs/assets/logo.png" width="128" height="128" alt="NotchCoach logo">
+
 # NotchCoach
 
-A teleprompter that sits in your MacBook's notch, right under the camera, with AI help built in.
+**Read your script. Keep eye contact.**
 
-- **Auto-scroll** at a speed you set. Hover over the prompter to pause.
-- **Follow my voice**: the script only moves as you speak, using Apple's on-device speech recognition. Words you've already said are dimmed.
-- **AI writer**: turn rough notes into a spoken script, or polish an existing one.
-- **Live call cues**: listens to the other people on a call and shows up to three short talking points under your script.
-- **Choose your AI**: Gemma running on your Mac (free, private), Claude with your own API key (best quality), or Apple Intelligence (free, built into macOS 26).
-- **Made for real calls**: a 3-2-1 countdown, a green glow that pulses with your voice, a reading marker on the current line, a clear "Everything stopped" card, and sections you can jump between (start a line with `#`).
-- **Anywhere you look**: in the notch, as a floating window you can drag, or on a second display. Light and dark modes for the window and floating prompters.
-- **On-screen controls**: a control bar under the script in the notch (play, skip, speed, voice, cues, hide) plus a red **Stop everything** button. Every button also has a keyboard shortcut.
-- Hidden from screen sharing and screen recordings.
+A free, open-source teleprompter that lives in your MacBook's notch, right under the camera.<br>
+It follows your voice, suggests replies on live calls, and runs its AI on your Mac.
+
+[![Download for Mac](https://img.shields.io/badge/Download_for_Mac-Free-FFD60A?style=for-the-badge&logo=apple&logoColor=111&labelColor=FFD60A&color=111)](https://github.com/sandeep9127-hub/notch-prompter-ai/releases/latest/download/NotchCoach.dmg)
+
+[![Latest release](https://img.shields.io/github/v/release/sandeep9127-hub/notch-prompter-ai?label=release&color=30D158)](https://github.com/sandeep9127-hub/notch-prompter-ai/releases/latest)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111?logo=apple)
+![Apple silicon](https://img.shields.io/badge/Apple_silicon-M1%2B-111)
+[![MIT licence](https://img.shields.io/badge/licence-MIT-111)](LICENSE)
+
+[Website](https://sandeep9127-hub.github.io/notch-prompter-ai/) · [Download](https://github.com/sandeep9127-hub/notch-prompter-ai/releases/latest) · [Report a problem](https://github.com/sandeep9127-hub/notch-prompter-ai/issues/new/choose)
+
+<br>
+
+<img src="docs/assets/main.png" alt="NotchCoach showing a script in the MacBook notch above a video call" width="900">
+
+<sub>Design preview</sub>
+
+</div>
+
+---
+
+## Why NotchCoach
+
+On a video call, reading notes means looking away from the camera. NotchCoach puts your words a few millimetres from the lens, so you look at people instead of your notes.
+
+- **No account, no subscription, no tracking.** Your script stays on your Mac.
+- **Stays out of screen shares and recordings.** Test once with your meeting app.
+- **One button stops everything**: scrolling, the microphone, call audio and AI.
+
+## Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### Follow my voice
+The script moves only as you speak, using Apple's on-device speech recognition. Words you've said fade out and a green glow pulses with your voice. Prefer a steady pace? Auto-scroll at any speed, with a 3-2-1 countdown.
+
+</td>
+<td width="50%"><img src="docs/assets/voice.png" alt="The prompter following the speaker's voice"></td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### Live call cues
+NotchCoach listens to the other side of the call and, when they pause, shows up to three short replies based on your notes. With Gemma or Apple Intelligence it all stays on your Mac.
+
+</td>
+<td width="50%"><img src="docs/assets/cues.png" alt="Suggested replies under the script"></td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### Always in control
+A countdown before you start, a minimal mode that shows controls only on hover, and a clear confirmation after **Stop everything**. The menu bar icon turns red whenever anything is listening.
+
+</td>
+<td width="50%"><img src="docs/assets/states.png" alt="Countdown, minimal mode and the stopped card"></td>
+</tr>
+</table>
+
+**Also:** sections you can jump to (start a line with `#`) · notch, floating window or second display · light and dark modes · an AI writer that turns bullet points into a natural script · every action as an on-screen button and a keyboard shortcut.
+
+## Choose where your AI runs
+
+| | Cost | Privacy | Needs |
+|---|---|---|---|
+| **Gemma** (default) | Free | Everything stays on your Mac | A one-time model download of a few GB |
+| **Claude** | Pay per use, your own key | Text goes to Anthropic | An API key from [console.anthropic.com](https://console.anthropic.com) |
+| **Apple Intelligence** | Free | Everything stays on your Mac | macOS 26 with Apple Intelligence turned on |
+
+<p align="center">
+<img src="docs/assets/editor.png" alt="Present screen, dark" width="49%">
+<img src="docs/assets/settings.png" alt="Settings, light" width="49%">
+</p>
+<p align="center"><sub>Design previews</sub></p>
 
 ## Install
 
-1. Open the [latest release](../../releases/latest) and download `NotchCoach.dmg`.
-2. Open the DMG and drag **NotchCoach** onto the **Applications** folder. (A `.zip` is there too if you prefer.)
-3. The app isn't notarised by Apple, so the first launch is blocked. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Or run this in Terminal:
-   ```
+1. Download **[NotchCoach.dmg](https://github.com/sandeep9127-hub/notch-prompter-ai/releases/latest/download/NotchCoach.dmg)**, open it and drag NotchCoach into **Applications**.
+2. NotchCoach isn't from the App Store, so macOS asks before opening it. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Or run:
+   ```sh
    xattr -dr com.apple.quarantine /Applications/NotchCoach.app
    ```
-4. NotchCoach runs from the menu bar (speech-bubble icon). The script window opens on launch.
+3. Click the NotchCoach logo in the menu bar, paste your script and press play.
 
-Needs an Apple-silicon Mac (M1 or later) with macOS 14 (Sonoma) or later. Works on Macs without a notch too: the prompter then sits at the top centre of the screen.
+**Requirements:** an Apple-silicon Mac (M1 or newer) with macOS 14 Sonoma or later. Macs and displays without a notch can use the floating or second-display mode.
 
-## Choose an AI engine
+**Permissions:** Follow my voice asks for the Microphone and Speech Recognition. Live call cues ask for Speech Recognition and Screen & System Audio Recording, which is used for call audio only. After granting the recording permission, quit and reopen NotchCoach.
 
-Pick one in **Settings → AI engine**. It powers both the AI writer and live cues.
+## Keyboard shortcuts
 
-| Engine | Cost | Privacy | Needs |
-|---|---|---|---|
-| **Gemma** (default) | Free | Everything stays on your Mac | A one-time model download of a few GB, and a few GB of free memory while it runs |
-| **Claude** | Pay per use with your own key | Text and call transcripts go to Anthropic | An API key from [console.anthropic.com](https://console.anthropic.com), stored in your Keychain |
-| **Apple Intelligence** | Free | Everything stays on your Mac | macOS 26 on a Mac with Apple Intelligence turned on |
-
-Gemma comes in two sizes: E2B (faster, lighter) and E4B (better writing, more memory). Claude gives the best writing. Apple's model has a small memory window, so very long scripts may need Gemma or Claude.
-
-If you use live cues with Claude, let others on the call know their speech is being sent to an AI service.
-
-## Permissions
-
-| Feature | macOS asks for |
-|---|---|
-| Follow my voice | Microphone, Speech Recognition |
-| Live call cues | Speech Recognition, Screen & System Audio Recording (used for call audio only) |
-
-If you said no by mistake, turn it on under **System Settings → Privacy & Security** and restart the feature. Because each build has a new ad-hoc signature, macOS may ask again after you install an update.
-
-## If it gets stuck
-
-Choose **Stop everything** (red button, menu bar icon, or ⌃⌥Esc). If the app stops responding, quit it from Terminal with `killall -9 NotchCoach`, or select it in Activity Monitor and click Force Quit. It doesn't appear in the ⌘⌥Esc Force Quit window, because it runs from the menu bar.
-
-A log is kept at `~/Library/Logs/NotchCoach.log` (menu bar icon → **Open Log File**). Send it along when reporting a problem.
-
-## Shortcuts
+Every shortcut also has a button on the prompter and in the menu bar.
 
 | Keys | Action |
 |---|---|
-| ⌃⌥ Space | Play / pause, or start / stop listening |
-| ⌃⌥ ↑ / ↓ | Back / forward one line |
-| ⌃⌥ = / − | Faster / slower |
-| ⌃⌥ R | Restart from the top |
-| ⌃⌥ V | Switch Auto-scroll / Follow my voice |
-| ⌃⌥ C | Live call cues on / off |
-| ⌃⌥ H | Show / hide the prompter |
-| ⌃⌥ Esc | Stop everything: scrolling, microphone, call audio and AI |
-| ⌃⌥ 1…9 | Jump to a section (lines starting with `#`) |
+| <kbd>⌃⌥ Space</kbd> | Play / pause, or start / stop listening |
+| <kbd>⌃⌥ ↑</kbd> <kbd>⌃⌥ ↓</kbd> | Back / forward one line |
+| <kbd>⌃⌥ =</kbd> <kbd>⌃⌥ −</kbd> | Faster / slower |
+| <kbd>⌃⌥ 1–9</kbd> | Jump to a section |
+| <kbd>⌃⌥ R</kbd> | Restart from the top |
+| <kbd>⌃⌥ V</kbd> | Follow my voice on / off |
+| <kbd>⌃⌥ C</kbd> | Live call cues on / off |
+| <kbd>⌃⌥ H</kbd> | Show / hide the prompter |
+| <kbd>⌃⌥ Esc</kbd> | **Stop everything** |
 
-## Build it yourself
+## Privacy
 
-GitHub Actions builds the app on every push to `main` and publishes it as a release. On a Mac with Xcode or the Swift toolchain installed you can also run:
+NotchCoach has no account, no analytics and no server. Speech is transcribed live and not saved. Text is sent to an AI service only if you choose Claude. See [PRIVACY.md](PRIVACY.md) for details.
 
-```
+## Troubleshooting
+
+- **Something's stuck:** press <kbd>⌃⌥ Esc</kbd>. If the app doesn't respond, run `killall -9 NotchCoach` in Terminal, or use Activity Monitor → Force Quit. NotchCoach runs from the menu bar, so it doesn't appear in the ⌘⌥Esc Force Quit window.
+- **Reporting a problem:** menu bar icon → **Open Log File**, then attach `~/Library/Logs/NotchCoach.log` to a [bug report](https://github.com/sandeep9127-hub/notch-prompter-ai/issues/new/choose).
+
+## Build from source
+
+You need Xcode 26 or later on an Apple-silicon Mac.
+
+```sh
+git clone https://github.com/sandeep9127-hub/notch-prompter-ai.git
+cd notch-prompter-ai
 ./scripts/build-app.sh
 open build/NotchCoach.app
 ```
+
+Every push to `main` is built by GitHub Actions and published as a release.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. Please open an issue first for larger changes.
+
+## Licence
+
+[MIT](LICENSE). Gemma models are downloaded from Hugging Face under Google's licence for them. NotchCoach is not affiliated with Apple, Google or Anthropic.
