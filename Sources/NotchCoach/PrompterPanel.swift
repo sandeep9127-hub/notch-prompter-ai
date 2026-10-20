@@ -350,7 +350,7 @@ struct PrompterView: View {
                 .init(color: .black.opacity(lines > 1 && row > 0 ? 0.45 : 1), location: 0),
                 .init(color: .black, location: max(0, start - 0.02)),
                 .init(color: .black, location: min(1, end + 0.02)),
-                .init(color: .black.opacity(lines > row + 1 ? 0.6 : 1), location: 1),
+                .init(color: .black.opacity(Double(lines) > row + 1 ? 0.6 : 1), location: 1),
             ],
             startPoint: .top,
             endPoint: .bottom
