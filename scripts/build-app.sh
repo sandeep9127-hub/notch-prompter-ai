@@ -34,4 +34,12 @@ otool -l "$APP/Contents/MacOS/NotchCoach" | grep -B3 FoundationModels | grep -q 
 # Ad-hoc signature: not notarised, so macOS asks you to approve it on first launch.
 codesign --force --deep --sign - "$APP"
 ditto -c -k --keepParent "$APP" build/NotchCoach.zip
-echo "Built $(pwd)/build/NotchCoach.zip ($(du -h build/NotchCoach.zip | cut -f1))"
+
+# Disk image with an Applications shortcut for drag-to-install.
+DMG_ROOT=build/dmg
+mkdir -p "$DMG_ROOT"
+cp -R "$APP" "$DMG_ROOT/"
+ln -s /Applications "$DMG_ROOT/Applications"
+hdiutil create -volname NotchCoach -srcfolder "$DMG_ROOT" -ov -format UDZO build/NotchCoach.dmg >/dev/null
+rm -rf "$DMG_ROOT"
+echo "Built build/NotchCoach.zip ($(du -h build/NotchCoach.zip | cut -f1)) and build/NotchCoach.dmg ($(du -h build/NotchCoach.dmg | cut -f1))"

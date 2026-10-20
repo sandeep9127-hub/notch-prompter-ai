@@ -118,13 +118,17 @@ actor GemmaEngine {
 
         container = nil
         let status = onStatus
+        // The downloader reports progress many times a second; only pass on whole-percent changes
+        // so the interface isn't flooded with updates.
+        let throttle = PercentThrottle()
+        Log.write("Gemma: loading \(wanted.rawValue)")
         let task = Task { () throws -> ModelContainer in
             status?("Loading Gemma…")
             let result = try await #huggingFaceLoadModelContainer(
                 configuration: wanted.configuration,
                 progressHandler: { progress in
                     let percent = Int(progress.fractionCompleted * 100)
-                    if percent < 100 { status?("Downloading Gemma… \(percent)%") }
+                    if percent < 100, throttle.shouldReport(percent) { status?("Downloading Gemma… \(percent)%") }
                 }
             )
             status?("Gemma is ready")
@@ -139,9 +143,28 @@ actor GemmaEngine {
             UserDefaults.standard.set(true, forKey: "gemmaReady-\(wanted.rawValue)")
             return result
         } catch {
+            Log.write("Gemma: load failed: \(error.localizedDescription)")
             status?("Couldn't load Gemma: \(error.localizedDescription)")
             throw error
         }
+    }
+
+    /// True once the selected model has been downloaded on this Mac.
+    nonisolated static var isDownloaded: Bool {
+        UserDefaults.standard.bool(forKey: "gemmaReady-\(GemmaModel.selected.rawValue)")
+    }
+}
+
+final class PercentThrottle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last = -1
+
+    func shouldReport(_ percent: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard percent != last else { return false }
+        last = percent
+        return true
     }
 }
 

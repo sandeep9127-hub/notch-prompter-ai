@@ -9,9 +9,10 @@ final class RequestBox: @unchecked Sendable {
 
     func set(_ newRequest: SFSpeechAudioBufferRecognitionRequest?) {
         lock.lock()
-        request?.endAudio()
+        let old = request
         request = newRequest
         lock.unlock()
+        old?.endAudio()
     }
 
     func append(_ buffer: AVAudioPCMBuffer) {
@@ -83,6 +84,7 @@ final class VoiceFollower {
     private var tokens: [String] = []
     private var position = 0
     private var generation = 0
+    private var backoff = RecognitionBackoff()
 
     func update(words: [String]) {
         tokens = words.map(TextMatch.normalize)
@@ -148,16 +150,27 @@ final class VoiceFollower {
         request.taskHint = .dictation
         if rec.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
         box.set(request)
+        backoff.started()
         task = rec.recognitionTask(with: request) { [weak self] result, error in
             let spoken = result?.bestTranscription.segments.map { $0.substring } ?? []
             let finished = (result?.isFinal ?? false) || error != nil
+            let errorText = error?.localizedDescription
             DispatchQueue.main.async {
                 guard let self, self.isRunning, gen == self.generation else { return }
-                if !spoken.isEmpty { self.align(spoken) }
+                if !spoken.isEmpty {
+                    self.backoff.heardSpeech()
+                    self.align(spoken)
+                }
                 if finished {
                     // Recognition sessions end after silence or a time limit; start a fresh one.
                     self.generation += 1
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { self.startTask() }
+                    guard let delay = self.backoff.nextDelay() else {
+                        Log.write("Voice follow gave up: \(errorText ?? "no error text")")
+                        self.stop()
+                        self.onStatus?("Speech recognition keeps failing\(errorText.map { ": \($0)" } ?? ""). Check that Dictation is available in System Settings → Keyboard.")
+                        return
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self.startTask() }
                 }
             }
         }

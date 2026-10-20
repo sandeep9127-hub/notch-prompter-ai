@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreGraphics
 import ScreenCaptureKit
 import Speech
 
@@ -17,6 +18,7 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     private var task: SFSpeechRecognitionTask?
     private var generation = 0
     private var pauseTimer: Timer?
+    private var backoff = RecognitionBackoff()
 
     private var history = ""
     private var partial = ""
@@ -28,6 +30,15 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func start(localeID: String) {
         guard !isRunning else { return }
+        Log.write("Live cues: start requested")
+        // Without this permission ScreenCaptureKit can stall, and macOS only applies a new grant
+        // after the app restarts, so ask up front and explain.
+        guard CGPreflightScreenCaptureAccess() else {
+            Log.write("Live cues: screen & system audio recording not granted yet")
+            CGRequestScreenCaptureAccess()
+            onStatus?("Allow NotchCoach under System Settings → Privacy & Security → Screen & System Audio Recording, then quit and reopen NotchCoach and turn cues on again.")
+            return
+        }
         Permissions.requestSpeech { [weak self] ok in
             guard let self else { return }
             guard ok else {
@@ -75,6 +86,7 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
             let newStream = SCStream(filter: filter, configuration: config, delegate: self)
             try newStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: audioQueue)
             try await newStream.startCapture()
+            Log.write("Live cues: capturing call audio")
             DispatchQueue.main.async {
                 if self.isRunning {
                     self.stream = newStream
@@ -85,6 +97,7 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
             }
         } catch {
             let message = error.localizedDescription
+            Log.write("Live cues: capture failed: \(message)")
             DispatchQueue.main.async {
                 self.stop()
                 self.onStatus?("Couldn't capture call audio. Allow NotchCoach under System Settings → Privacy & Security → Screen & System Audio Recording, then turn cues on again. (\(message))")
@@ -115,14 +128,17 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
         request.shouldReportPartialResults = true
         if rec.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
         box.set(request)
+        backoff.started()
         task = rec.recognitionTask(with: request) { [weak self] result, error in
             let text = result?.bestTranscription.formattedString ?? ""
             let finished = (result?.isFinal ?? false) || error != nil
+            let errorText = error?.localizedDescription
             DispatchQueue.main.async {
                 guard let self, self.isRunning, gen == self.generation else { return }
                 if text != self.partial {
                     self.partial = text
                     self.lastChange = Date()
+                    if !text.isEmpty { self.backoff.heardSpeech() }
                 }
                 if finished {
                     if !self.partial.isEmpty { self.history += self.partial + " " }
@@ -133,7 +149,13 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
                         self.sentUpTo = max(0, self.sentUpTo - drop)
                     }
                     self.generation += 1
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { self.startTask() }
+                    guard let delay = self.backoff.nextDelay() else {
+                        Log.write("Live cues gave up on speech recognition: \(errorText ?? "no error text")")
+                        self.stop()
+                        self.onStatus?("Speech recognition keeps failing\(errorText.map { ": \($0)" } ?? ""). Check that Dictation is available in System Settings → Keyboard.")
+                        return
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self.startTask() }
                 }
             }
         }
@@ -177,6 +199,7 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func stop() {
         guard isRunning else { return }
+        Log.write("Live cues: stopped")
         isRunning = false
         generation += 1
         pauseTimer?.invalidate()

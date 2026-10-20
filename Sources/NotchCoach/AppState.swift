@@ -99,8 +99,13 @@ final class AppState: ObservableObject {
         }
         cueEngine.onStatus = { [weak self] message in
             MainActor.assumeIsolated {
-                self?.cueStatus = message
-                if !(self?.cueEngine.isRunning ?? false) { self?.cuesEnabled = false }
+                guard let self else { return }
+                self.cueStatus = message
+                if !self.cueEngine.isRunning {
+                    self.cuesEnabled = false
+                    // Keep problems such as missing permissions on screen after cues switch off.
+                    if !message.isEmpty { self.status = message }
+                }
             }
         }
         cueEngine.contextProvider = { [weak self] in
@@ -289,6 +294,12 @@ final class AppState: ObservableObject {
             cues = []
             cueStatus = ""
         } else {
+            // Never start a multi-GB download in the middle of a call.
+            if aiEngine == .gemma && !GemmaEngine.isDownloaded {
+                cueStatus = "Download Gemma first: Settings → AI engine → Download / load model."
+                status = cueStatus
+                return
+            }
             cuesEnabled = true
             cues = []
             cueEngine.start(localeID: speechLocale)

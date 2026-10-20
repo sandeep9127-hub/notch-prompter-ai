@@ -23,7 +23,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: NotchCoach
-          path: build/NotchCoach.zip
+          path: |
+            build/NotchCoach.dmg
+            build/NotchCoach.zip
 
       - name: Publish release
         if: github.ref == 'refs/heads/main'
@@ -31,5 +33,7 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: NotchCoach build ${{ github.run_number }}
-          files: build/NotchCoach.zip
+          files: |
+            build/NotchCoach.dmg
+            build/NotchCoach.zip
           make_latest: true

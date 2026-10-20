@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController?.setVisible(true)
         setupStatusItem()
         setupHotKeys()
+        Log.write("NotchCoach \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?") launched")
         state.onOpenEditor = { [weak self] in
             MainActor.assumeIsolated { self?.openEditor() }
         }
@@ -84,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(makeItem("Switch Auto-scroll / Follow Voice  (⌃⌥V)", #selector(toggleMode), ""))
         menu.addItem(makeItem("Live Call Cues On / Off  (⌃⌥C)", #selector(toggleCues), ""))
         menu.addItem(.separator())
+        menu.addItem(makeItem("Open Log File", #selector(openLog), ""))
         menu.addItem(makeItem("Quit NotchCoach", #selector(quit), "q"))
         item.menu = menu
         statusItem = item
@@ -133,4 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleMode() { state.setMode(state.mode == .timed ? .voice : .timed) }
     @objc private func toggleCues() { state.toggleCues() }
     @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func openLog() {
+        if !FileManager.default.fileExists(atPath: Log.url.path) { Log.write("Log opened") }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSWorkspace.shared.open(Log.url) }
+    }
 }

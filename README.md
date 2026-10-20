@@ -12,8 +12,8 @@ A teleprompter that sits in your MacBook's notch, right under the camera, with A
 
 ## Install
 
-1. Open the [latest release](../../releases/latest) and download `NotchCoach.zip`.
-2. Unzip it and drag `NotchCoach.app` into **Applications**.
+1. Open the [latest release](../../releases/latest) and download `NotchCoach.dmg`.
+2. Open the DMG and drag **NotchCoach** onto the **Applications** folder. (A `.zip` is there too if you prefer.)
 3. The app isn't notarised by Apple, so the first launch is blocked. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Or run this in Terminal:
    ```
    xattr -dr com.apple.quarantine /Applications/NotchCoach.app
@@ -44,6 +44,12 @@ If you use live cues with Claude, let others on the call know their speech is be
 | Live call cues | Speech Recognition, Screen & System Audio Recording (used for call audio only) |
 
 If you said no by mistake, turn it on under **System Settings → Privacy & Security** and restart the feature. Because each build has a new ad-hoc signature, macOS may ask again after you install an update.
+
+## If it gets stuck
+
+Choose **Stop everything** (red button, menu bar icon, or ⌃⌥Esc). If the app stops responding, quit it from Terminal with `killall -9 NotchCoach`, or select it in Activity Monitor and click Force Quit. It doesn't appear in the ⌘⌥Esc Force Quit window, because it runs from the menu bar.
+
+A log is kept at `~/Library/Logs/NotchCoach.log` (menu bar icon → **Open Log File**). Send it along when reporting a problem.
 
 ## Shortcuts
 
