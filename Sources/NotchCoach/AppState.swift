@@ -422,6 +422,9 @@ final class AppState: ObservableObject {
             spokenWordIndex = lines[line].words.lowerBound
             voice.jump(to: spokenWordIndex)
         }
+        // Switching on Follow my voice means "listen to me now", so start right away
+        // (with the countdown, if it's on) instead of waiting for a separate Start button.
+        if newMode == .voice { togglePlay() }
     }
 
     func restart() {

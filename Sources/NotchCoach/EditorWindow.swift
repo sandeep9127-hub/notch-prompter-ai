@@ -222,7 +222,7 @@ struct PresentView: View {
                         get: { state.mode == .voice },
                         set: { state.setMode($0 ? .voice : .timed) }
                     ))
-                    .help("Scroll only as you speak  ⌃⌥V")
+                    .help("Starts listening right away; the script scrolls only as you speak  ⌃⌥V")
                 }
                 GridRow {
                     Toggle("Live call cues", isOn: Binding(
@@ -775,7 +775,7 @@ struct ShortcutsTab: View {
         ("⌃⌥ ↑ / ↓", "Move back / forward one line"),
         ("⌃⌥ = / −", "Faster / slower auto-scroll"),
         ("⌃⌥ R", "Restart from the top"),
-        ("⌃⌥ V", "Switch between Auto-scroll and Follow my voice"),
+        ("⌃⌥ V", "Follow my voice on / off (starts listening right away)"),
         ("⌃⌥ C", "Live call cues on / off"),
         ("⌃⌥ H", "Show / hide the prompter"),
         ("⌃⌥ Esc", "Stop everything: scrolling, microphone, call audio and AI"),
