@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import CoreMedia
 import Speech
@@ -61,6 +62,28 @@ enum Permissions {
         AVCaptureDevice.requestAccess(for: .audio) { granted in
             DispatchQueue.main.async { done(granted) }
         }
+    }
+
+    static let screenRecordingSettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+
+    /// Clears a stale Screen & System Audio Recording entry, for example one left by an older
+    /// build, so macOS asks again cleanly.
+    static func resetScreenRecording() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        task.arguments = ["reset", "ScreenCapture", Bundle.main.bundleIdentifier ?? "app.notchcoach.NotchCoach"]
+        try? task.run()
+        task.waitUntilExit()
+        Log.write("Reset Screen Recording permission (exit \(task.terminationStatus))")
+    }
+
+    /// macOS applies a new Screen Recording grant only after the app restarts.
+    static func relaunch() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = ["-c", "sleep 1; /usr/bin/open \"\(Bundle.main.bundlePath)\""]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 
     static func recognizer(for localeID: String) -> SFSpeechRecognizer? {

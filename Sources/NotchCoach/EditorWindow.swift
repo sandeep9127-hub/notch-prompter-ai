@@ -144,6 +144,7 @@ struct PresentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if state.needsScreenPermission { permissionHelp }
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 22) {
                         NotchPreview().frame(minWidth: 320, maxWidth: 420)
@@ -162,6 +163,32 @@ struct PresentView: View {
             }
             .padding(24)
         }
+    }
+
+    private var permissionHelp: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Live call cues need Screen & System Audio Recording", systemImage: "waveform.badge.exclamationmark")
+                .font(.headline)
+            Text("NotchCoach uses it only to hear the other side of your call. If NotchCoach is already switched on in System Settings but this keeps appearing, the permission belongs to an older version: reset it and allow it again.")
+                .font(.callout)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button("Open System Settings") { NSWorkspace.shared.open(Permissions.screenRecordingSettings) }
+                Button("Reset permission & reopen") {
+                    Permissions.resetScreenRecording()
+                    Permissions.relaunch()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Reopen NotchCoach") { Permissions.relaunch() }
+                Spacer()
+                Button("Dismiss") { state.needsScreenPermission = false }
+                    .buttonStyle(.borderless)
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.orange.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.orange.opacity(0.35)))
     }
 
     private var controls: some View {

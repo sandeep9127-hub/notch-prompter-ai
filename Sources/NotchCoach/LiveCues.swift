@@ -10,6 +10,8 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     var onCues: (([String], String) -> Void)?
     var onStatus: ((String) -> Void)?
     var contextProvider: (() -> String)?
+    /// Called when Screen & System Audio Recording isn't granted (or macOS hasn't applied it yet).
+    var onPermissionMissing: (() -> Void)?
     private(set) var isRunning = false
 
     private var stream: SCStream?
@@ -37,7 +39,8 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
         guard CGPreflightScreenCaptureAccess() else {
             Log.write("Live cues: screen & system audio recording not granted yet")
             CGRequestScreenCaptureAccess()
-            onStatus?("Allow NotchCoach under System Settings → Privacy & Security → Screen & System Audio Recording, then quit and reopen NotchCoach and turn cues on again.")
+            onPermissionMissing?()
+            onStatus?("NotchCoach needs Screen & System Audio Recording to hear the call. Allow it, then reopen NotchCoach.")
             return
         }
         Permissions.requestSpeech { [weak self] ok in

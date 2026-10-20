@@ -87,6 +87,7 @@ final class AppState: ObservableObject {
     @Published var cues: [String] = []
     @Published var cueHeard = ""
     @Published var cueStatus = ""
+    @Published var needsScreenPermission = false
 
     // AI writer
     @Published var aiBusy = false
@@ -167,6 +168,12 @@ final class AppState: ObservableObject {
                     // Keep problems such as missing permissions on screen after cues switch off.
                     if !message.isEmpty { self.status = message }
                 }
+            }
+        }
+        cueEngine.onPermissionMissing = { [weak self] in
+            MainActor.assumeIsolated {
+                self?.needsScreenPermission = true
+                self?.onOpenEditor?()
             }
         }
         cueEngine.contextProvider = { [weak self] in
@@ -482,6 +489,7 @@ final class AppState: ObservableObject {
             cuesEnabled = true
             cues = []
             cueHeard = ""
+            needsScreenPermission = false
             cueEngine.start(localeID: speechLocale)
         }
     }

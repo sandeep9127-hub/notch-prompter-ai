@@ -53,7 +53,12 @@ otool -l "$APP/Contents/MacOS/NotchCoach" | grep -B3 FoundationModels | grep -q 
   || { echo "error: FoundationModels must be weak-linked"; exit 1; }
 
 # Ad-hoc signature: not notarised, so macOS asks you to approve it on first launch.
-codesign --force --deep --sign - "$APP"
+# The designated requirement names only the bundle ID. By default an ad-hoc signature is tied
+# to this exact build, so macOS would forget Microphone and Screen Recording permissions after
+# every update; with this requirement, each new build counts as the same app.
+codesign --force --deep --sign - \
+  --requirements '=designated => identifier "app.notchcoach.NotchCoach"' "$APP"
+echo "Designated requirement:"; codesign -d -r- "$APP" 2>&1 | grep designated
 ditto -c -k --keepParent "$APP" build/NotchCoach.zip
 
 # Disk image with an Applications shortcut for drag-to-install.
