@@ -488,6 +488,7 @@ struct SettingsTab: View {
     @EnvironmentObject var state: AppState
     @State private var apiKey = ""
     @State private var saved = false
+    @AppStorage("claudeWorkspaceID") private var workspaceID = ""
 
     private let locales: [(String, String)] = [
         ("en-IN", "English (India)"), ("en-US", "English (US)"), ("en-GB", "English (UK)"),
@@ -601,6 +602,11 @@ struct SettingsTab: View {
         Picker("Model", selection: $state.model) {
             ForEach(ClaudeClient.models, id: \.id) { Text($0.label).tag($0.id) }
         }
+        TextField("Workspace ID (optional, wrkspc_…)", text: $workspaceID)
+            .textFieldStyle(.roundedBorder)
+        Text("Only needed if your key isn't tied to a workspace. Find the ID in the Claude Console under Settings → Workspaces.")
+            .font(.caption)
+            .foregroundColor(.secondary)
         Text("Get a key at console.anthropic.com; it's stored in your macOS Keychain. Script text and call transcripts are sent to Anthropic when you use the AI writer or live cues.")
             .font(.caption)
             .foregroundColor(.secondary)

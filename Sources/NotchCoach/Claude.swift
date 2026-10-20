@@ -6,6 +6,7 @@ enum ClaudeError: LocalizedError {
     case http(Int, String)
     case refused
     case empty
+    case needsWorkspace
 
     var errorDescription: String? {
         switch self {
@@ -13,6 +14,8 @@ enum ClaudeError: LocalizedError {
         case .http(let code, let message): return "Claude API error \(code): \(message)"
         case .refused: return "Claude declined this request."
         case .empty: return "Claude returned no text."
+        case .needsWorkspace:
+            return "This API key belongs to your whole organization, so Claude needs to know which workspace to use. Add a Workspace ID in Settings → Claude, or create a key inside a workspace at console.anthropic.com."
         }
     }
 }
@@ -26,6 +29,11 @@ enum ClaudeClient {
     ]
     /// Models that accept server-side refusal fallbacks.
     private static let fallbackModels: Set<String> = ["claude-opus-5-5", "claude-sonnet-5-5"]
+
+    /// Only needed for organization-level keys that aren't scoped to one workspace.
+    static var workspaceID: String {
+        (UserDefaults.standard.string(forKey: "claudeWorkspaceID") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     static var model: String {
         UserDefaults.standard.string(forKey: "model") ?? defaultModel
@@ -41,6 +49,9 @@ enum ClaudeClient {
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         request.setValue(key, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        if !workspaceID.isEmpty {
+            request.setValue(workspaceID, forHTTPHeaderField: "anthropic-workspace-id")
+        }
 
         var body: [String: Any] = [
             "model": model,
@@ -61,6 +72,7 @@ enum ClaudeClient {
         guard status == 200 else {
             let message = (json["error"] as? [String: Any])?["message"] as? String
                 ?? String(data: data, encoding: .utf8) ?? "Unknown error"
+            if status == 400, message.localizedCaseInsensitiveContains("workspace") { throw ClaudeError.needsWorkspace }
             throw ClaudeError.http(status, message)
         }
         if json["stop_reason"] as? String == "refusal" { throw ClaudeError.refused }
