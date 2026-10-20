@@ -16,7 +16,7 @@ struct NotchCoachMain {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let state = AppState()
     private var panelController: PrompterPanelController?
     private let editor = EditorWindowController()
@@ -73,20 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: "NotchCoach")
         let menu = NSMenu()
-        let stop = makeItem("Stop Everything  (⌃⌥Esc)", #selector(hardStop), "")
-        stop.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: nil)
-        menu.addItem(stop)
-        menu.addItem(.separator())
-        menu.addItem(makeItem("Open Script & Settings…", #selector(openEditor), "e"))
-        menu.addItem(.separator())
-        menu.addItem(makeItem("Play / Pause  (⌃⌥Space)", #selector(togglePlay), ""))
-        menu.addItem(makeItem("Restart from top", #selector(restart), ""))
-        menu.addItem(makeItem("Show / Hide Prompter  (⌃⌥H)", #selector(toggleVisible), ""))
-        menu.addItem(makeItem("Switch Auto-scroll / Follow Voice  (⌃⌥V)", #selector(toggleMode), ""))
-        menu.addItem(makeItem("Live Call Cues On / Off  (⌃⌥C)", #selector(toggleCues), ""))
-        menu.addItem(.separator())
-        menu.addItem(makeItem("Open Log File", #selector(openLog), ""))
-        menu.addItem(makeItem("Quit NotchCoach", #selector(quit), "q"))
+        menu.delegate = self
         item.menu = menu
         statusItem = item
 
@@ -107,6 +94,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &bag)
     }
 
+    /// Rebuilt each time it opens so check marks and live status are current.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+
+        var live: [String] = []
+        if state.micActive { live.append("● Mic on") }
+        if state.cuesEnabled { live.append("● Call audio on") }
+        if state.aiBusy { live.append("● AI working") }
+        let header = NSMenuItem(title: live.isEmpty ? "Nothing is listening" : live.joined(separator: "   "), action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+
+        let stop = makeItem("Stop Everything", #selector(hardStop), "", shortcut: "⌃⌥Esc")
+        stop.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: nil)
+        menu.addItem(stop)
+        menu.addItem(.separator())
+
+        menu.addItem(makeItem(state.isPlaying ? "Pause" : "Play", #selector(togglePlay), "", shortcut: "⌃⌥Space"))
+        menu.addItem(makeItem("Restart from Top", #selector(restart), "", shortcut: "⌃⌥R"))
+        menu.addItem(makeItem(state.isPrompterVisible ? "Hide Prompter" : "Show Prompter", #selector(toggleVisible), "", shortcut: "⌃⌥H"))
+        if !state.sections.isEmpty {
+            let sectionsItem = NSMenuItem(title: "Jump to Section", action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            for section in state.sections {
+                let item = makeItem(section.title, #selector(jumpToSection(_:)), "", shortcut: section.id < 9 ? "⌃⌥\(section.id + 1)" : nil)
+                item.tag = section.id
+                item.state = state.currentSection?.id == section.id ? .on : .off
+                sub.addItem(item)
+            }
+            sectionsItem.submenu = sub
+            menu.addItem(sectionsItem)
+        }
+        menu.addItem(.separator())
+
+        let voice = makeItem("Follow My Voice", #selector(toggleMode), "", shortcut: "⌃⌥V")
+        voice.state = state.mode == .voice ? .on : .off
+        menu.addItem(voice)
+        let cues = makeItem("Live Call Cues", #selector(toggleCues), "", shortcut: "⌃⌥C")
+        cues.state = state.cuesEnabled ? .on : .off
+        menu.addItem(cues)
+
+        let engineItem = NSMenuItem(title: "AI Engine", action: nil, keyEquivalent: "")
+        let engines = NSMenu()
+        for engine in AIEngineKind.allCases {
+            let item = makeItem(engine.label, #selector(chooseEngine(_:)), "")
+            item.representedObject = engine.rawValue
+            item.state = state.aiEngine == engine ? .on : .off
+            engines.addItem(item)
+        }
+        engineItem.submenu = engines
+        menu.addItem(engineItem)
+
+        let placementItem = NSMenuItem(title: "Prompter Position", action: nil, keyEquivalent: "")
+        let placements = NSMenu()
+        for placement in PrompterPlacement.allCases {
+            let item = makeItem(placement.label, #selector(choosePlacement(_:)), "")
+            item.representedObject = placement.rawValue
+            item.state = state.placement == placement ? .on : .off
+            placements.addItem(item)
+        }
+        placementItem.submenu = placements
+        menu.addItem(placementItem)
+        menu.addItem(.separator())
+
+        menu.addItem(makeItem("Script & Settings…", #selector(openEditor), "e"))
+        menu.addItem(makeItem("Open Log File", #selector(openLog), ""))
+        menu.addItem(.separator())
+        menu.addItem(makeItem("Quit NotchCoach", #selector(quit), "q"))
+    }
+
+    private func makeItem(_ title: String, _ action: Selector, _ key: String, shortcut: String?) -> NSMenuItem {
+        // Global shortcuts can't be menu key equivalents, so they're shown as a dimmed suffix.
+        let item = makeItem(title, action, key)
+        if let shortcut {
+            let text = NSMutableAttributedString(string: title)
+            text.append(NSAttributedString(string: "    \(shortcut)", attributes: [.foregroundColor: NSColor.secondaryLabelColor]))
+            item.attributedTitle = text
+        }
+        return item
+    }
+
     private func makeItem(_ title: String, _ action: Selector, _ key: String) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
@@ -125,6 +193,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keys.register(keyCode: kVK_ANSI_C) { [weak self] in self?.state.toggleCues() }
         keys.register(keyCode: kVK_ANSI_R) { [weak self] in self?.state.restart() }
         keys.register(keyCode: kVK_Escape) { [weak self] in self?.state.hardStop() }
+        let numberKeys = [kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5, kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9]
+        for (index, key) in numberKeys.enumerated() {
+            keys.register(keyCode: key) { [weak self] in self?.state.jump(toSection: index) }
+        }
     }
 
     @objc private func openEditor() { editor.show(state: state) }
@@ -135,6 +207,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleMode() { state.setMode(state.mode == .timed ? .voice : .timed) }
     @objc private func toggleCues() { state.toggleCues() }
     @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func jumpToSection(_ sender: NSMenuItem) { state.jump(toSection: sender.tag) }
+    @objc private func chooseEngine(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let engine = AIEngineKind(rawValue: raw) { state.aiEngine = engine }
+    }
+    @objc private func choosePlacement(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let placement = PrompterPlacement(rawValue: raw) {
+            state.placement = placement
+            state.isPrompterVisible = true
+        }
+    }
     @objc private func openLog() {
         if !FileManager.default.fileExists(atPath: Log.url.path) { Log.write("Log opened") }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSWorkspace.shared.open(Log.url) }

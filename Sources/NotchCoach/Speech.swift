@@ -22,6 +22,34 @@ final class RequestBox: @unchecked Sendable {
     }
 }
 
+/// Turns microphone buffers into a 0–1 loudness value, reported at most 20 times a second.
+final class LevelMeter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastReport = 0.0
+    private let report: (Float) -> Void
+
+    init(report: @escaping (Float) -> Void) {
+        self.report = report
+    }
+
+    func process(_ buffer: AVAudioPCMBuffer) {
+        let now = ProcessInfo.processInfo.systemUptime
+        lock.lock()
+        let due = now - lastReport >= 0.05
+        if due { lastReport = now }
+        lock.unlock()
+        guard due, let channel = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
+        let count = Int(buffer.frameLength)
+        var sum: Float = 0
+        for i in 0..<count { sum += channel[i] * channel[i] }
+        let rms = (sum / Float(count)).squareRoot()
+        // Map roughly -50 dB…0 dB to 0…1.
+        let db = 20 * log10(max(rms, 0.000_01))
+        let level = max(0, min(1, (db + 50) / 50))
+        DispatchQueue.main.async { self.report(level) }
+    }
+}
+
 enum Permissions {
     static func requestSpeech(_ done: @escaping (Bool) -> Void) {
         SFSpeechRecognizer.requestAuthorization { status in
@@ -75,9 +103,11 @@ enum TextMatch {
 final class VoiceFollower {
     var onWordIndex: ((Int) -> Void)?
     var onStatus: ((String) -> Void)?
+    var onLevel: ((Float) -> Void)?
     private(set) var isRunning = false
 
     private let engine = AVAudioEngine()
+    private lazy var meter = LevelMeter { [weak self] level in self?.onLevel?(level) }
     private let box = RequestBox()
     private var recognizer: SFSpeechRecognizer?
     private var task: SFSpeechRecognitionTask?
@@ -124,8 +154,10 @@ final class VoiceFollower {
         let format = input.outputFormat(forBus: 0)
         input.removeTap(onBus: 0)
         let box = self.box
+        let meter = self.meter
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             box.append(buffer)
+            meter.process(buffer)
         }
         engine.prepare()
         do {

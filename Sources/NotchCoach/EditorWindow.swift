@@ -129,50 +129,49 @@ struct PresentView: View {
     @EnvironmentObject var state: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            controls
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Script").font(.headline)
-                    Spacer()
-                    Text("\(state.wordCount) words · about \(state.readingTime) to read")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 22) {
+                        NotchPreview().frame(minWidth: 320, maxWidth: 420)
+                        controls
+                    }
+                    VStack(alignment: .leading, spacing: 18) {
+                        NotchPreview()
+                        controls
+                    }
                 }
-                TextEditor(text: $state.script)
-                    .font(.system(size: 15))
-                    .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .textBackgroundColor)))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.25)))
+                .padding(18)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.04)))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.primary.opacity(0.08)))
+
+                scriptSection
             }
+            .padding(24)
         }
-        .padding(24)
     }
 
     private var controls: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Button { state.nudge(lines: -1) } label: { Image(systemName: "backward.fill") }
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Button { state.nudge(lines: -1) } label: { Image(systemName: "backward.fill").frame(width: 18) }
                     .help("Back one line  ⌃⌥↑")
                 Button { state.togglePlay() } label: {
-                    Label(playTitle, systemImage: playIcon).frame(minWidth: 130)
+                    Label(playTitle, systemImage: playIcon).frame(minWidth: 140)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(state.mode == .voice ? .green : .accentColor)
                 .help(state.mode == .voice ? "Start / stop listening  ⌃⌥Space" : "Play / pause  ⌃⌥Space")
-                Button { state.nudge(lines: 1) } label: { Image(systemName: "forward.fill") }
+                Button { state.nudge(lines: 1) } label: { Image(systemName: "forward.fill").frame(width: 18) }
                     .help("Forward one line  ⌃⌥↓")
                 Button { state.restart() } label: { Label("Restart", systemImage: "arrow.counterclockwise") }
                     .help("Back to the top  ⌃⌥R")
-                Spacer()
-                StopEverythingButton(compact: true)
             }
             .controlSize(.large)
 
-            Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 10) {
+            Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 10) {
                 GridRow {
-                    Toggle("Show prompter", isOn: $state.isPrompterVisible)
-                        .help("⌃⌥H")
+                    Toggle("Show prompter", isOn: $state.isPrompterVisible).help("⌃⌥H")
                     Toggle("Follow my voice", isOn: Binding(
                         get: { state.mode == .voice },
                         set: { state.setMode($0 ? .voice : .timed) }
@@ -184,15 +183,21 @@ struct PresentView: View {
                         get: { state.cuesEnabled },
                         set: { _ in state.toggleCues() }
                     ))
-                    .help("Suggest talking points from what others say  ⌃⌥C")
+                    .help("Suggest replies from what others say  ⌃⌥C")
                     Toggle("Controls on prompter", isOn: $state.alwaysShowControls)
-                        .help("Always show buttons under the script in the notch")
+                        .help("Always show buttons under the script")
+                }
+                GridRow {
+                    Toggle("3-second countdown", isOn: $state.countdownEnabled)
+                        .help("Count down 3, 2, 1 before scrolling or listening starts")
+                    Toggle("Pause when I hover", isOn: $state.pauseOnHover)
+                        .help("Auto-scroll pauses while the pointer is on the prompter")
                 }
             }
             .toggleStyle(.switch)
 
             HStack(spacing: 24) {
-                LabeledSlider(title: "Speed", value: $state.speed, range: 5...150, display: "\(Int(state.speed))")
+                LabeledSlider(title: "Speed", value: $state.speed, range: 5...150, display: state.mode == .voice ? "Voice" : "\(Int(state.speed))")
                     .disabled(state.mode == .voice)
                     .help(state.mode == .voice ? "Speed follows your voice" : "⌃⌥= faster, ⌃⌥− slower")
                 LabeledSlider(title: "Text size", value: $state.fontSize, range: 14...40, display: "\(Int(state.fontSize)) pt")
@@ -205,11 +210,62 @@ struct PresentView: View {
                 Label(state.cueStatus, systemImage: "text.bubble").font(.callout).foregroundColor(.secondary)
             }
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08)))
+    }
+
+    private var scriptSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text("Script").font(.title3.weight(.bold))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(state.sections) { section in
+                            sectionButton(section)
+                        }
+                    }
+                }
+                Spacer(minLength: 8)
+                Text("\(state.wordCount) words · about \(state.readingTime) to read")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize()
+            }
+            TextEditor(text: $state.script)
+                .font(.system(size: 15))
+                .lineSpacing(4)
+                .scrollContentBackground(.hidden)
+                .padding(10)
+                .frame(minHeight: 280)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(nsColor: .textBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.12)))
+            Text("Tip: start a line with # to make a section you can jump to, like “# Results”.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionButton(_ section: ScriptSection) -> some View {
+        let current = state.currentSection?.id == section.id
+        let button = Button { state.jump(toSection: section.id) } label: {
+            HStack(spacing: 6) {
+                if section.id < 9 {
+                    Text("⌘\(section.id + 1)").font(.system(size: 10, design: .monospaced)).foregroundColor(.secondary)
+                }
+                Text(section.title).lineLimit(1)
+            }
+        }
+        .buttonStyle(.bordered)
+        .tint(current ? Color.yellow : nil)
+        .help("Jump to “\(section.title)”  ⌃⌥\(section.id + 1) anywhere")
+        if section.id < 9 {
+            button.keyboardShortcut(KeyEquivalent(Character("\(section.id + 1)")), modifiers: .command)
+        } else {
+            button
+        }
     }
 
     private var playTitle: String {
+        if state.countdown != nil { return "Cancel countdown" }
         switch (state.mode, state.isPlaying) {
         case (.voice, true): return "Stop listening"
         case (.voice, false): return "Start listening"
@@ -219,8 +275,74 @@ struct PresentView: View {
     }
 
     private var playIcon: String {
+        if state.countdown != nil { return "xmark" }
         if state.isPlaying { return state.mode == .voice ? "mic.slash.fill" : "pause.fill" }
         return state.mode == .voice ? "mic.fill" : "play.fill"
+    }
+}
+
+/// A small live copy of what the prompter is showing.
+struct NotchPreview: View {
+    @EnvironmentObject var state: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(state.placement == .notch ? "IN YOUR NOTCH NOW" : "ON SCREEN NOW")
+                    .font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundColor(.secondary)
+                Spacer()
+                Text(statusText).font(.system(size: 11, weight: .semibold)).foregroundColor(statusColor)
+            }
+            ZStack(alignment: .top) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.08))
+                VStack(alignment: .leading, spacing: 3) {
+                    if let value = state.countdown {
+                        Text("Starting in \(value)…").font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
+                    } else if state.lines.isEmpty {
+                        Text("No script yet").font(.system(size: 14)).foregroundColor(.gray)
+                    } else {
+                        ForEach(Array(state.previewLines.enumerated()), id: \.offset) { index, line in
+                            HStack(spacing: 8) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(index == state.readingRow ? (state.mode == .voice ? Color.green : Color.yellow) : .clear)
+                                    .frame(width: 3, height: 13)
+                                Text(line).lineLimit(1)
+                                    .foregroundColor(index == state.readingRow ? .white : .white.opacity(0.4))
+                            }
+                            .font(.system(size: 15, weight: .semibold))
+                        }
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.12))
+                            Capsule().fill(state.mode == .voice ? Color.green : Color.white.opacity(0.7))
+                                .frame(width: max(0, min(1, state.progress)) * geo.size.width)
+                        }
+                    }
+                    .frame(height: 3)
+                    .padding(.top, 6)
+                }
+                .padding(EdgeInsets(top: 24, leading: 16, bottom: 14, trailing: 16))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(UnevenRoundedRectangle(bottomLeadingRadius: 18, bottomTrailingRadius: 18, style: .continuous).fill(Color.black))
+                .padding(.horizontal, 22)
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            if let section = state.currentSection {
+                Text("Section: \(section.title)").font(.caption).foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private var statusText: String {
+        if state.countdown != nil { return "● Counting down" }
+        if state.mode == .voice { return state.isPlaying ? "● Following your voice" : "Voice · not listening" }
+        return state.isPlaying ? "● Auto-scrolling" : "Paused"
+    }
+
+    private var statusColor: Color {
+        state.isPlaying || state.countdown != nil ? .green : .secondary
     }
 }
 
@@ -335,10 +457,11 @@ struct SettingsTab: View {
     var body: some View {
         Form {
             Section("AI engine") {
-                Picker("Use", selection: $state.aiEngine) {
-                    ForEach(AIEngineKind.allCases) { Text($0.label).tag($0) }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { engineCards }
+                    VStack(spacing: 10) { engineCards }
                 }
-                .pickerStyle(.radioGroup)
+                .padding(.vertical, 4)
 
                 switch state.aiEngine {
                 case .gemma: gemmaSettings
@@ -347,15 +470,28 @@ struct SettingsTab: View {
                 }
             }
 
+            Section("Appearance") {
+                Picker("Window", selection: $state.appearance) {
+                    ForEach(WindowAppearance.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Picker("Prompter", selection: $state.placement) {
+                    ForEach(PrompterPlacement.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Text(placementHelp)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section("Prompter") {
                 Slider(value: $state.fontSize, in: 14...40, step: 1) { Text("Text size: \(Int(state.fontSize))") }
                 Slider(value: $state.speed, in: 5...150, step: 1) { Text("Scroll speed: \(Int(state.speed))") }
-                Slider(value: $state.panelWidth, in: 420...800, step: 10) { Text("Width: \(Int(state.panelWidth))") }
+                Slider(value: $state.panelWidth, in: 460...800, step: 10) { Text("Width: \(Int(state.panelWidth))") }
                 Stepper("Visible lines: \(state.visibleLines)", value: $state.visibleLines, in: 1...6)
                 Toggle("Always show controls on the prompter", isOn: $state.alwaysShowControls)
-                Text("When off, the controls appear only while the pointer is over the prompter.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Toggle("3-second countdown before starting", isOn: $state.countdownEnabled)
+                Toggle("Pause auto-scroll while the pointer is on the prompter", isOn: $state.pauseOnHover)
             }
 
             Section("Speech") {
@@ -375,18 +511,40 @@ struct SettingsTab: View {
         .onChange(of: apiKey) { saved = false }
     }
 
+    private var placementHelp: String {
+        switch state.placement {
+        case .notch: return "Sits in the notch, right under the camera. It's always black so it blends with the notch."
+        case .floating: return "A card you can drag anywhere by its top handle. Follows the window appearance."
+        case .display: return "Top centre of your second display, for an external camera. Follows the window appearance."
+        }
+    }
+
+    @ViewBuilder
+    private var engineCards: some View {
+        EngineCard(kind: .gemma, title: "Gemma", detail: "Runs on this Mac. Nothing you write or hear leaves it.", tag: "Free · Private", tagColor: .green)
+        EngineCard(kind: .claude, title: "Claude", detail: "Best writing quality, with your own Anthropic API key.", tag: "Pay per use", tagColor: .blue)
+        EngineCard(kind: .apple, title: "Apple Intelligence", detail: "Apple's built-in model. No download needed.", tag: "Free · macOS 26", tagColor: .gray)
+    }
+
     @ViewBuilder
     private var gemmaSettings: some View {
-        Picker("Model", selection: $state.gemmaModel) {
-            ForEach(GemmaModel.allCases) { Text($0.label).tag($0) }
+        Picker("Model size", selection: $state.gemmaModel) {
+            Text("E2B · faster, lighter").tag(GemmaModel.e2b)
+            Text("E4B · better writing").tag(GemmaModel.e4b)
         }
-        HStack {
-            Button("Download / load model") { state.prepareGemma() }
-            if !state.gemmaStatus.isEmpty {
-                Text(state.gemmaStatus).font(.callout).foregroundColor(.secondary)
+        .pickerStyle(.segmented)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button(GemmaEngine.isDownloaded ? "Load model" : "Download model") { state.prepareGemma() }
+                if !state.gemmaStatus.isEmpty {
+                    Text(state.gemmaStatus).font(.callout).foregroundColor(.secondary)
+                }
+            }
+            if let progress = state.gemmaProgress, progress < 1 {
+                ProgressView(value: progress)
             }
         }
-        Text("Runs entirely on this Mac: nothing you write or hear is sent anywhere. The model downloads once from Hugging Face (a few GB) and uses a few GB of memory while loaded.")
+        Text("A one-time download of a few GB from Hugging Face. It uses a few GB of memory while loaded.")
             .font(.caption)
             .foregroundColor(.secondary)
     }
@@ -403,7 +561,7 @@ struct SettingsTab: View {
         Picker("Model", selection: $state.model) {
             ForEach(ClaudeClient.models, id: \.id) { Text($0.label).tag($0.id) }
         }
-        Text("Best quality, paid per use. Get a key at console.anthropic.com; it's stored in your macOS Keychain. Script text and call transcripts are sent to Anthropic when you use the AI writer or live cues.")
+        Text("Get a key at console.anthropic.com; it's stored in your macOS Keychain. Script text and call transcripts are sent to Anthropic when you use the AI writer or live cues.")
             .font(.caption)
             .foregroundColor(.secondary)
     }
@@ -415,9 +573,50 @@ struct SettingsTab: View {
         } else {
             Label("Apple Intelligence is ready on this Mac.", systemImage: "checkmark.circle").foregroundColor(.green)
         }
-        Text("Uses Apple's built-in on-device model: no download and nothing leaves your Mac. It has a small memory window, so very long scripts may need Gemma or Claude.")
+        Text("No download, and nothing leaves your Mac. It has a small memory window, so very long scripts may need Gemma or Claude.")
             .font(.caption)
             .foregroundColor(.secondary)
+    }
+}
+
+/// One selectable AI engine, drawn as a card.
+struct EngineCard: View {
+    @EnvironmentObject var state: AppState
+    let kind: AIEngineKind
+    let title: String
+    let detail: String
+    let tag: String
+    let tagColor: Color
+
+    var body: some View {
+        let selected = state.aiEngine == kind
+        Button { state.aiEngine = kind } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(title).font(.system(size: 14, weight: .bold))
+                    Spacer()
+                    Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                        .foregroundColor(selected ? .primary : .secondary)
+                }
+                Text(detail).font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(tag)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(tagColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(tagColor.opacity(0.14)))
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(selected ? Color.primary : Color.primary.opacity(0.12), lineWidth: selected ? 2 : 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 
@@ -431,6 +630,8 @@ struct ShortcutsTab: View {
         ("⌃⌥ C", "Live call cues on / off"),
         ("⌃⌥ H", "Show / hide the prompter"),
         ("⌃⌥ Esc", "Stop everything: scrolling, microphone, call audio and AI"),
+        ("⌃⌥ 1…9", "Jump to a section (lines starting with #)"),
+        ("⌘ 1…9", "Jump to a section, while this window is open"),
         ("Hover", "Hovering over the prompter pauses auto-scroll"),
     ]
 

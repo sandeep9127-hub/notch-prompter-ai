@@ -7,6 +7,8 @@ A teleprompter that sits in your MacBook's notch, right under the camera, with A
 - **AI writer**: turn rough notes into a spoken script, or polish an existing one.
 - **Live call cues**: listens to the other people on a call and shows up to three short talking points under your script.
 - **Choose your AI**: Gemma running on your Mac (free, private), Claude with your own API key (best quality), or Apple Intelligence (free, built into macOS 26).
+- **Made for real calls**: a 3-2-1 countdown, a green glow that pulses with your voice, a reading marker on the current line, a clear "Everything stopped" card, and sections you can jump between (start a line with `#`).
+- **Anywhere you look**: in the notch, as a floating window you can drag, or on a second display. Light and dark modes for the window and floating prompters.
 - **On-screen controls**: a control bar under the script in the notch (play, skip, speed, voice, cues, hide) plus a red **Stop everything** button. Every button also has a keyboard shortcut.
 - Hidden from screen sharing and screen recordings.
 
@@ -63,6 +65,7 @@ A log is kept at `~/Library/Logs/NotchCoach.log` (menu bar icon → **Open Log F
 | ⌃⌥ C | Live call cues on / off |
 | ⌃⌥ H | Show / hide the prompter |
 | ⌃⌥ Esc | Stop everything: scrolling, microphone, call audio and AI |
+| ⌃⌥ 1…9 | Jump to a section (lines starting with `#`) |
 
 ## Build it yourself
 

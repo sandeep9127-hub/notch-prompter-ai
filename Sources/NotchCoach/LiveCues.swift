@@ -6,7 +6,8 @@ import Speech
 /// Captures the Mac's system audio (the other people on a call), transcribes it on-device,
 /// and after each pause asks Claude for short talking points. Public methods run on main.
 final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
-    var onCues: (([String]) -> Void)?
+    /// The suggested replies, plus the last thing the other side said.
+    var onCues: (([String], String) -> Void)?
     var onStatus: ((String) -> Void)?
     var contextProvider: (() -> String)?
     private(set) var isRunning = false
@@ -180,10 +181,11 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
                     effort: "low"
                 )
                 let cues = Prompts.parseCues(reply)
+                let heard = Self.lastSentence(of: recent)
                 DispatchQueue.main.async {
                     self.requesting = false
                     guard self.isRunning else { return }
-                    if !cues.isEmpty { self.onCues?(cues) }
+                    if !cues.isEmpty { self.onCues?(cues, heard) }
                     self.onStatus?(Self.listening)
                 }
             } catch {
@@ -195,6 +197,16 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
                 }
             }
         }
+    }
+
+    /// The tail of the transcript, trimmed to the last sentence or so, to show what the cues answer.
+    private static func lastSentence(of text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tail = String(trimmed.suffix(90))
+        if let cut = tail.range(of: #"[.?!]\s+(?=[^.?!]*[.?!]?$)"#, options: .regularExpression) {
+            return String(tail[cut.upperBound...])
+        }
+        return trimmed.count > 90 ? "…" + tail : tail
     }
 
     func stop() {
