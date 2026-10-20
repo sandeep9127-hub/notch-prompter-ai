@@ -681,6 +681,8 @@ struct SettingsTab: View {
             Button(saved ? "Saved" : "Save") {
                 Keychain.apiKey = apiKey
                 saved = true
+                // A saved key means the user wants Claude, which writes better than the local models.
+                if !apiKey.trimmingCharacters(in: .whitespaces).isEmpty { state.aiEngine = .claude }
             }
         }
         Picker("Model", selection: $state.model) {

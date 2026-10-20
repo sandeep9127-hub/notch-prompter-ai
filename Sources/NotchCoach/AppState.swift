@@ -86,6 +86,8 @@ final class AppState: ObservableObject {
     @Published var cuesEnabled = false
     @Published var cues: [String] = []
     @Published var cueHeard = ""
+    /// What the call audio is saying right now, shown live in the cue card.
+    @Published var cueHearing = ""
     @Published var cueStatus = ""
     @Published var needsScreenPermission = false
 
@@ -125,7 +127,14 @@ final class AppState: ObservableObject {
         visibleLines = defaults.object(forKey: "visibleLines") as? Int ?? 3
         speechLocale = defaults.string(forKey: "speechLocale") ?? "en-IN"
         model = defaults.string(forKey: "model") ?? ClaudeClient.defaultModel
-        aiEngine = AIEngineKind(rawValue: defaults.string(forKey: "aiEngine") ?? "") ?? .gemma
+        // Prefer Claude once an API key has been added, unless Gemma is already downloaded and chosen.
+        let hasClaudeKey = !(Keychain.apiKey ?? "").isEmpty
+        let storedEngine = AIEngineKind(rawValue: defaults.string(forKey: "aiEngine") ?? "")
+        if hasClaudeKey && (storedEngine == nil || (storedEngine == .gemma && !GemmaEngine.isDownloaded)) {
+            aiEngine = .claude
+        } else {
+            aiEngine = storedEngine ?? .gemma
+        }
         gemmaModel = GemmaModel(rawValue: defaults.string(forKey: "gemmaModel") ?? "") ?? .e2b
         alwaysShowControls = defaults.object(forKey: "alwaysShowControls") as? Bool ?? true
         countdownEnabled = defaults.object(forKey: "countdownEnabled") as? Bool ?? true
@@ -174,6 +183,9 @@ final class AppState: ObservableObject {
                     if !message.isEmpty { self.status = message }
                 }
             }
+        }
+        cueEngine.onHearing = { [weak self] text in
+            MainActor.assumeIsolated { self?.cueHearing = text }
         }
         cueEngine.onPermissionMissing = { [weak self] in
             MainActor.assumeIsolated {
@@ -483,6 +495,7 @@ final class AppState: ObservableObject {
             cuesEnabled = false
             cues = []
             cueHeard = ""
+            cueHearing = ""
             cueStatus = ""
         } else {
             // Never start a multi-GB download in the middle of a call.

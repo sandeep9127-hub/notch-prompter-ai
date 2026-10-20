@@ -391,7 +391,18 @@ struct PrompterView: View {
                 Text(state.cueStatus.isEmpty ? "Listening for the other side…" : state.cueStatus)
                     .font(.system(size: 12))
                     .foregroundColor(palette.dimText)
-                    .lineLimit(3)
+                    .lineLimit(2)
+                // Live proof that call audio is getting through, before any suggestion arrives.
+                if !state.cueHearing.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "waveform").font(.system(size: 10, weight: .semibold)).foregroundColor(orange)
+                        Text("Hearing: “\(state.cueHearing)”")
+                            .font(.system(size: 11))
+                            .foregroundColor(palette.text.opacity(0.7))
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                    }
+                }
             } else {
                 ForEach(Array(state.cues.enumerated()), id: \.offset) { index, cue in
                     HStack(spacing: 9) {

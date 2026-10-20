@@ -12,6 +12,8 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     var contextProvider: (() -> String)?
     /// Called when Screen & System Audio Recording isn't granted (or macOS hasn't applied it yet).
     var onPermissionMissing: (() -> Void)?
+    /// The latest words heard from the call, so you can see that audio is coming through.
+    var onHearing: ((String) -> Void)?
     private(set) var isRunning = false
 
     private var stream: SCStream?
@@ -28,6 +30,8 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     private var lastChange = Date()
     private var sentUpTo = 0
     private var requesting = false
+    private var lastRequest = Date.distantPast
+    private var heardAnything = false
 
     private static let listening = "Listening to call audio…"
 
@@ -63,6 +67,8 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
         history = ""
         partial = ""
         sentUpTo = 0
+        heardAnything = false
+        lastRequest = .distantPast
         onStatus?("Starting system audio capture…")
         startTask()
         pauseTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -142,6 +148,13 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
                 if text != self.partial {
                     self.partial = text
                     self.lastChange = Date()
+                    if !text.isEmpty {
+                        if !self.heardAnything {
+                            self.heardAnything = true
+                            Log.write("Live cues: hearing speech from call audio")
+                        }
+                        self.onHearing?(String((self.history + text).suffix(120)))
+                    }
                     if !text.isEmpty { self.backoff.heardSpeech() }
                 }
                 if finished {
@@ -166,12 +179,19 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     /// Asks for cues once the other side has said something new and then paused.
+    /// Asks for cues when the other side pauses, or every 8 seconds during non-stop speech
+    /// (videos and long answers rarely pause).
     private func checkForPause() {
         guard isRunning, !requesting else { return }
         let transcript = history + partial
-        guard transcript.count - sentUpTo > 25, Date().timeIntervalSince(lastChange) > 1.5 else { return }
+        let newChars = transcript.count - sentUpTo
+        let paused = newChars > 25 && Date().timeIntervalSince(lastChange) > 1.2
+        let longRun = newChars > 60 && Date().timeIntervalSince(lastRequest) > 8
+        guard paused || longRun else { return }
         sentUpTo = transcript.count
+        lastRequest = Date()
         requesting = true
+        Log.write("Live cues: asking \(AI.engine.rawValue) (\(paused ? "pause" : "timer"), \(newChars) new characters)")
         let recent = String(transcript.suffix(1500))
         let context = contextProvider?() ?? ""
         onStatus?("Thinking…")
@@ -188,11 +208,17 @@ final class LiveCueEngine: NSObject, SCStreamOutput, SCStreamDelegate {
                 DispatchQueue.main.async {
                     self.requesting = false
                     guard self.isRunning else { return }
-                    if !cues.isEmpty { self.onCues?(cues, heard) }
-                    self.onStatus?(Self.listening)
+                    Log.write("Live cues: got \(cues.count) suggestion(s)")
+                    if cues.isEmpty {
+                        self.onStatus?("No suggestion for that yet. Still listening…")
+                    } else {
+                        self.onCues?(cues, heard)
+                        self.onStatus?(Self.listening)
+                    }
                 }
             } catch {
                 let message = error.localizedDescription
+                Log.write("Live cues: AI request failed: \(message)")
                 DispatchQueue.main.async {
                     self.requesting = false
                     guard self.isRunning else { return }
